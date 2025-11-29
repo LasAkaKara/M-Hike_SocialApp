@@ -83,19 +83,17 @@ class AuthService {
     try {
       // Find user by username
       const result = await db.query(
-        "SELECT id, username, avatarUrl, bio, region, passwordHash, createdAt FROM users WHERE username = $1",
+        "SELECT id, username, avatarUrl, bio, region, passwordhash, createdAt FROM users WHERE username = $1",
         [username]
       );
 
       if (result.rows.length === 0) {
-        throw new Error("Invalid username or password");
+        throw new Error("Invalid username");
       }
-
       const user = result.rows[0];
-
       // Verify password
-      if (!this.verifyPassword(password, user.passwordHash)) {
-        throw new Error("Invalid username or password");
+      if (!this.verifyPassword(password, user.passwordhash)) {
+        throw new Error("Invalid password");
       }
 
       // Generate token
