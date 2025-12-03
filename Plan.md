@@ -6,19 +6,19 @@ A comprehensive development blueprint for a hybrid hiking application integratin
 
 ## **1. Project Overview**
 
-| Item                   | Description                                                          |
-| ---------------------- | -------------------------------------------------------------------- |
-| **App Name**     | _M-Hike (Social Edition)_                                          |
-| **Platform**     | React Native (iOS + Android)                                         |
-| **Architecture** | Local-first with cloud-enhanced social features                      |
-| **Main Goal**    | Deliver a robust hike tracking system with optional social discovery |
-| **Grade Target** | High First-Class (80%–100%)                                         |
-
+| Feature          | Primary App (Java)         | Secondary App (RN)                |
+| ---------------- | -------------------------- |-----------------------------------|
+| **Language**     | Java (Native Android)      | Javascript                        |
+| **Scope**        | Full Scope (A ->G)         | Core CRUD Only (A&B)             | 
+| **Architecture** | MVVM (ViewModel + LiveData)| Component-based (Hooks)           |
+| **Connectivity** | Offline-First + Cloud Sync | Offline-Only (Local Persistence)  |
+| **Grade Target** | Express.js + PostgreSQL    | N/A                               |
+| **Cloud Backend**| High First-Class           | Prototype                         |
 ---
 
 ## **2. Core Features & Requirements (Tasks A–F)**
 
-### **A. Hike Entry (Data Input)**
+### **A & E. Hike Entry (Data Input)**
 
 Users can create, validate, and store hike entries with a polished UI.
 
@@ -97,14 +97,6 @@ Enhancement: Allow each hike to have multiple timestamped observations.
   - Length slider
   - Date range picker
   - Location text input
-
----
-
-### **E. Cross-Platform UI**
-
-- Styling: **StyleSheet** or **NativeWind**
-- Navigation: **React Navigation** (Stack + Tabs)
-- Consistency and accessibility emphasized
 
 ---
 
@@ -409,78 +401,54 @@ backend/
 ### B. Frontend
 
 ```
-mhike-app/
+app/src/main/java/com/mhike/app/
 │
-├── src/
-│   ├── api/
-│   │   ├── client.ts               # Axios instance
-│   │   ├── hikes.ts                # API calls for hikes
-│   │   ├── observations.ts         # API calls for observations
-│   │   ├── auth.ts (optional)
-│   │
-│   ├── navigation/
-│   │   ├── AppNavigator.tsx        # Stack + Tabs
-│   │   ├── MainTabNavigator.tsx
-│   │   ├── types.ts
-│   │
-│   ├── screens/
-│   │   ├── Hikes/
-│   │   │   ├── HikeListScreen.tsx
-│   │   │   ├── HikeDetailScreen.tsx
-│   │   │   ├── HikeCreateScreen.tsx
-│   │   │   ├── HikeEditScreen.tsx
-│   │   │
-│   │   ├── Observations/
-│   │   │   ├── ObservationListScreen.tsx
-│   │   │   ├── ObservationCreateScreen.tsx
-│   │   │
-│   │   ├── Feed/
-│   │   │   ├── FeedScreen.tsx
-│   │
-│   │   ├── Search/
-│   │   │   ├── SearchScreen.tsx
-│   │
-│   │   ├── Settings/
-│   │       ├── SettingsScreen.tsx
-│   │
-│   ├── components/
-│   │   ├── HikeCard.tsx
-│   │   ├── ObservationCard.tsx
-│   │   ├── Input.tsx
-│   │   ├── Button.tsx
-│   │
-│   ├── hooks/
-│   │   ├── useFetch.ts
-│   │   ├── useHikes.ts
-│   │   ├── useObservations.ts
-│   │
-│   ├── store/
-│   │   ├── index.ts
-│   │   ├── hikeStore.ts
-│   │   ├── observationStore.ts
-│   │
-│   ├── utils/
-│   │   ├── helpers.ts
-│   │   ├── formatters.ts
-│   │
-│   ├── types/
-│   │   ├── Hike.ts
-│   │   ├── Observation.ts
-│   │   ├── User.ts
-│   │
-│   ├── theme/
-│   │   ├── colors.ts
-│   │   ├── spacing.ts
-│   │   ├── typography.ts
-│   │
-│   ├── App.tsx
+├── api/                        # Network Layer (Retrofit)
+│   ├── ApiClient.java
+│   ├── ApiService.java         # REST Endpoints definition
+│   └── models/                 # JSON response POJOs
+│       ├── CloudHike.java
+│       └── CloudUser.java
 │
-├── assets/
-│   ├── icons/
-│   ├── images/
+├── database/                   # Local Data Layer (Room)
+│   ├── AppDatabase.java
+│   ├── daos/
+│   │   ├── HikeDao.java
+│   │   └── ObservationDao.java
+│   └── entities/
+│       ├── Hike.java
+│       └── Observation.java
 │
-├── package.json
-├── tsconfig.json
-└── README.md
+├── repository/                 # Single Source of Truth
+│   ├── HikeRepository.java     # Decides between Local DB or Network
+│   └── UserRepository.java
+│
+├── ui/                         # View Layer (Activities/Fragments)
+│   ├── adapters/               # RecyclerView Adapters
+│   │   ├── HikeAdapter.java
+│   │   └── ObservationAdapter.java
+│   │
+│   ├── viewmodels/             # MVVM ViewModels
+│   │   ├── HikeViewModel.java
+│   │   └── SharedViewModel.java
+│   │
+│   ├── add/                    # Feature: Add/Edit
+│   │   ├── AddHikeActivity.java
+│   │   └── AddObservationFragment.java
+│   │
+│   ├── details/                # Feature: Details
+│   │   └── HikeDetailActivity.java
+│   │
+│   ├── home/                   # Feature: List/Search
+│   │   └── MainActivity.java   # Contains Hike List Fragment
+│   │
+│   └── social/                 # Feature: Cloud/Feed (Java Only)
+│       ├── FeedFragment.java
+│       └── LoginActivity.java
+│
+└── utils/                      # Helpers
+    ├── DateUtils.java
+    ├── LocationHelper.java
+    └── ValidationUtils.java
 
 ```
