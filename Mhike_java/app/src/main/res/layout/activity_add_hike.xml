@@ -59,7 +59,7 @@
             android:id="@+id/locationInputLayout"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginBottom="16dp"
+            android:layout_marginBottom="8dp"
             android:hint="@string/location"
             app:counterEnabled="false"
             app:boxStrokeWidth="1dp"
@@ -77,6 +77,95 @@
                 android:maxLines="1" />
 
         </com.google.android.material.textfield.TextInputLayout>
+
+        <!-- Latitude Field (Read-only) -->
+        <com.google.android.material.textfield.TextInputLayout
+            android:id="@+id/latitudeInputLayout"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="8dp"
+            android:hint="Latitude"
+            app:counterEnabled="false"
+            app:boxStrokeWidth="1dp"
+            app:boxCornerRadiusTopStart="8dp"
+            app:boxCornerRadiusTopEnd="8dp"
+            app:boxCornerRadiusBottomEnd="8dp"
+            app:boxCornerRadiusBottomStart="8dp">
+
+            <com.google.android.material.textfield.TextInputEditText
+                android:id="@+id/latitudeEditText"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:inputType="text"
+                android:focusable="false"
+                android:clickable="false"
+                android:maxLines="1" />
+
+        </com.google.android.material.textfield.TextInputLayout>
+
+        <!-- Longitude Field (Read-only) -->
+        <com.google.android.material.textfield.TextInputLayout
+            android:id="@+id/longitudeInputLayout"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="16dp"
+            android:hint="Longitude"
+            app:counterEnabled="false"
+            app:boxStrokeWidth="1dp"
+            app:boxCornerRadiusTopStart="8dp"
+            app:boxCornerRadiusTopEnd="8dp"
+            app:boxCornerRadiusBottomEnd="8dp"
+            app:boxCornerRadiusBottomStart="8dp">
+
+            <com.google.android.material.textfield.TextInputEditText
+                android:id="@+id/longitudeEditText"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:inputType="text"
+                android:focusable="false"
+                android:clickable="false"
+                android:maxLines="1" />
+
+        </com.google.android.material.textfield.TextInputLayout>
+
+        <!-- Location Buttons -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center"
+            android:layout_marginBottom="16dp"
+            android:spacing="8dp">
+
+            <!-- Get GPS Location Button -->
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/getGpsButton"
+                android:layout_width="0dp"
+                android:layout_height="40dp"
+                android:layout_weight="1"
+                android:layout_marginEnd="8dp"
+                android:text="Get GPS Location"
+                android:textSize="12sp"
+                style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+                android:textColor="@color/primary"
+                app:strokeColor="@color/primary"
+                app:cornerRadius="6dp" />
+
+            <!-- Pick on Map Button -->
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/pickMapButton"
+                android:layout_width="0dp"
+                android:layout_height="40dp"
+                android:layout_weight="1"
+                android:layout_marginStart="8dp"
+                android:text="Pick on Map"
+                android:textSize="12sp"
+                style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+                android:textColor="@color/primary"
+                app:strokeColor="@color/primary"
+                app:cornerRadius="6dp" />
+
+        </LinearLayout>
 
         <!-- Date Field -->
         <com.google.android.material.textfield.TextInputLayout

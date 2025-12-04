@@ -12,6 +12,9 @@ import com.example.mhike.database.daos.HikeDao;
 import com.example.mhike.database.daos.ObservationDao;
 import com.example.mhike.database.entities.Hike;
 import com.example.mhike.database.entities.Observation;
+import com.example.mhike.services.SyncService;
+
+import okhttp3.OkHttpClient;
 
 import java.util.List;
 
@@ -312,5 +315,81 @@ public class HikeViewModel extends AndroidViewModel {
      */
     private void postSuccessMessage(String message) {
         successMessage.postValue(message);
+    }
+    
+    /**
+     * Sync all offline hikes to the cloud using SyncService
+     * Requires auth token to be passed in
+     */
+    public void syncOfflineHikesToCloud(String authToken, SyncService.SyncCallback callback) {
+        isLoading.postValue(true);
+        
+        SyncService syncService = new SyncService(
+            getApplication(),
+            new okhttp3.OkHttpClient(),
+            authToken
+        );
+        
+        syncService.syncAllOfflineHikes(new SyncService.SyncCallback() {
+            @Override
+            public void onSyncStart(int totalHikes) {
+                isLoading.postValue(true);
+                if (callback != null) {
+                    callback.onSyncStart(totalHikes);
+                }
+            }
+            
+            @Override
+            public void onSyncProgress(int completed, int total) {
+                if (callback != null) {
+                    callback.onSyncProgress(completed, total);
+                }
+            }
+            
+            @Override
+            public void onSyncSuccess(SyncService.SyncResult result) {
+                isLoading.postValue(false);
+                String message = "Synced " + result.successfulUploads + "/" + result.totalHikes + " hikes";
+                postSuccessMessage(message);
+                if (callback != null) {
+                    callback.onSyncSuccess(result);
+                }
+            }
+            
+            @Override
+            public void onSyncError(String errorMessage) {
+                isLoading.postValue(false);
+                postErrorMessage(errorMessage);
+                if (callback != null) {
+                    callback.onSyncError(errorMessage);
+                }
+            }
+        });
+    }
+    
+    /**
+     * Get count of offline hikes waiting to be synced
+     */
+    public void getOfflineHikeCount(String authToken, SyncService.CountCallback callback) {
+        SyncService syncService = new SyncService(
+            getApplication(),
+            new okhttp3.OkHttpClient(),
+            authToken
+        );
+        
+        syncService.getOfflineHikeCount(callback);
+    }
+    
+    /**
+     * Get sync status of all hikes (total, synced, offline, percentage)
+     */
+    public void getSyncStatus(String authToken, SyncService.StatusCallback callback) {
+        SyncService syncService = new SyncService(
+            getApplication(),
+            new okhttp3.OkHttpClient(),
+            authToken
+        );
+        
+        syncService.getSyncStatus(callback);
     }
 }

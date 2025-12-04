@@ -8,7 +8,7 @@ android {
 
     defaultConfig {
         applicationId = "com.example.mhike"
-        minSdk = 26
+        minSdk = 36
         targetSdk = 36
         versionCode = 1
         versionName = "1.0"
@@ -29,6 +29,7 @@ android {
         sourceCompatibility = JavaVersion.VERSION_11
         targetCompatibility = JavaVersion.VERSION_11
     }
+    buildToolsVersion = "36.0.0"
 }
 
 dependencies {
@@ -58,6 +59,12 @@ dependencies {
     
     // Image Loading
     implementation(libs.glide)
+    
+    // Location Services
+    implementation(libs.play.services.location)
+    
+    // Map
+    implementation(libs.osmdroid)
     
     testImplementation(libs.junit)
     androidTestImplementation(libs.ext.junit)

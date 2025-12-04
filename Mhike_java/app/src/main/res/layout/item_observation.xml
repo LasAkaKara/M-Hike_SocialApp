@@ -61,6 +61,16 @@
             android:layout_marginBottom="12dp"
             android:visibility="gone" />
 
+        <!-- Observation Location (if exists) -->
+        <com.google.android.material.textview.MaterialTextView
+            android:id="@+id/observationLocation"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:textSize="12sp"
+            android:textColor="@color/primary"
+            android:layout_marginBottom="8dp"
+            android:visibility="gone" />
+
         <!-- Observation Image (if exists) -->
         <ImageView
             android:id="@+id/observationImage"

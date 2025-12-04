@@ -119,10 +119,16 @@ public interface HikeDao {
     LiveData<List<Hike>> getHikesByPrivacy(String privacy);
     
     /**
-     * Get hikes by sync status.
+     * Get hikes by sync status (asynchronous - returns LiveData).
      */
     @Query("SELECT * FROM hikes WHERE syncStatus = :syncStatus ORDER BY date DESC, time DESC")
     LiveData<List<Hike>> getHikesBySyncStatus(int syncStatus);
+    
+    /**
+     * Get hikes by sync status (synchronous - blocking call for background threads).
+     */
+    @Query("SELECT * FROM hikes WHERE syncStatus = :syncStatus ORDER BY date DESC, time DESC")
+    List<Hike> getHikesBySyncStatusSync(int syncStatus);
     
     /**
      * Get total number of hikes.

@@ -17,4 +17,9 @@
         android:title="@string/delete_all_hikes"
         app:showAsAction="never" />
 
+    <item
+        android:id="@+id/actionSync"
+        android:title="@string/sync_database"
+        app:showAsAction="never" />
+
 </menu>

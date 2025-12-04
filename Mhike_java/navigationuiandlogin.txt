@@ -1,0 +1,18 @@
+graph TD
+    Start(App Launch) --> A{Is User Logged In?}
+    A -- No --> B[Login Activity]
+    B -- No Account? --> C[Register Activity]
+    B -- Success --> D[Main Activity]
+    A -- Yes --> D
+    
+    subgraph "Main Activity (Bottom Navigation)"
+        D --> E[Tab 1: My Hikes]
+        D --> F[Tab 2: Community Feed]
+        D --> G[Tab 3: Profile]
+    end
+
+    E -- Click 'Plus' --> H[Add Hike Activity]
+    E -- Click Item --> I[Hike Detail Activity]
+    I -- Click 'Share' --> J(Sync to Cloud)
+    
+    F -- Click Item --> K[Social Hike Detail]

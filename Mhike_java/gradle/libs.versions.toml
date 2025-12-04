@@ -12,6 +12,8 @@ okhttp = "4.12.0"
 gson = "2.10.1"
 glide = "4.16.0"
 constraintLayout = "2.1.4"
+playServices = "21.0.1"
+osmdroid = "6.1.18"
 
 [libraries]
 junit = { group = "junit", name = "junit", version.ref = "junit" }
@@ -32,6 +34,8 @@ glide = { group = "com.github.bumptech.glide", name = "glide", version.ref = "gl
 constraint-layout = { group = "androidx.constraintlayout", name = "constraintlayout", version.ref = "constraintLayout" }
 fragment = { group = "androidx.fragment", name = "fragment", version = "1.6.2" }
 recyclerview = { group = "androidx.recyclerview", name = "recyclerview", version = "1.3.2" }
+play-services-location = { group = "com.google.android.gms", name = "play-services-location", version.ref = "playServices" }
+osmdroid = { group = "org.osmdroid", name = "osmdroid-android", version.ref = "osmdroid" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }

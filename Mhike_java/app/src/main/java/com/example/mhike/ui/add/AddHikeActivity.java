@@ -2,16 +2,22 @@ package com.example.mhike.ui.add;
 
 import android.app.DatePickerDialog;
 import android.app.TimePickerDialog;
+import android.content.Intent;
 import android.os.Bundle;
 import android.text.TextUtils;
 import android.widget.ArrayAdapter;
 import android.widget.AutoCompleteTextView;
+import android.widget.Toast;
 
+import androidx.activity.result.ActivityResultLauncher;
+import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.lifecycle.ViewModelProvider;
 
 import com.example.mhike.R;
 import com.example.mhike.database.entities.Hike;
+import com.example.mhike.services.LocationManager;
+import com.example.mhike.ui.location.PickLocationActivity;
 import com.example.mhike.ui.viewmodels.HikeViewModel;
 import com.google.android.material.button.MaterialButton;
 import com.google.android.material.snackbar.Snackbar;
@@ -34,6 +40,8 @@ public class AddHikeActivity extends AppCompatActivity {
     // UI Components
     private TextInputEditText nameEditText;
     private TextInputEditText locationEditText;
+    private TextInputEditText latitudeEditText;
+    private TextInputEditText longitudeEditText;
     private TextInputEditText dateEditText;
     private TextInputEditText timeEditText;
     private TextInputEditText lengthEditText;
@@ -54,6 +62,16 @@ public class AddHikeActivity extends AppCompatActivity {
     private TextInputLayout privacyInputLayout;
     private TextInputLayout descriptionInputLayout;
     
+    private MaterialButton getGpsButton;
+    private MaterialButton pickMapButton;
+    
+    private Double selectedLatitude;
+    private Double selectedLongitude;
+    private LocationManager locationManager;
+    
+    // Activity result launcher for map picker
+    private ActivityResultLauncher<Intent> mapPickerLauncher;
+    
     private final Calendar calendar = Calendar.getInstance();
     
     @Override
@@ -62,11 +80,16 @@ public class AddHikeActivity extends AppCompatActivity {
         setContentView(R.layout.activity_add_hike);
         
         viewModel = new ViewModelProvider(this).get(HikeViewModel.class);
+        locationManager = new LocationManager(this);
+        
+        // Initialize map picker launcher
+        initializeMapPickerLauncher();
         
         initializeUI();
         setupDropdowns();
         setupDateTimeListeners();
         setupButtonListeners();
+        setupLocationListeners();
         observeMessages();
         
         // Check if editing existing hike
@@ -76,10 +99,28 @@ public class AddHikeActivity extends AppCompatActivity {
         }
     }
     
+    /**
+     * Initialize the map picker launcher
+     */
+    private void initializeMapPickerLauncher() {
+        mapPickerLauncher = registerForActivityResult(
+            new ActivityResultContracts.StartActivityForResult(),
+            result -> {
+                if (result.getResultCode() == RESULT_OK && result.getData() != null) {
+                    selectedLatitude = result.getData().getDoubleExtra("latitude", 0);
+                    selectedLongitude = result.getData().getDoubleExtra("longitude", 0);
+                    updateLocationDisplay();
+                }
+            }
+        );
+    }
+    
     private void initializeUI() {
         // TextInput EditTexts
         nameEditText = findViewById(R.id.nameEditText);
         locationEditText = findViewById(R.id.locationEditText);
+        latitudeEditText = findViewById(R.id.latitudeEditText);
+        longitudeEditText = findViewById(R.id.longitudeEditText);
         dateEditText = findViewById(R.id.dateEditText);
         timeEditText = findViewById(R.id.timeEditText);
         lengthEditText = findViewById(R.id.lengthEditText);
@@ -95,6 +136,8 @@ public class AddHikeActivity extends AppCompatActivity {
         // Buttons
         saveButton = findViewById(R.id.saveButton);
         cancelButton = findViewById(R.id.cancelButton);
+        getGpsButton = findViewById(R.id.getGpsButton);
+        pickMapButton = findViewById(R.id.pickMapButton);
         
         // Layout inputs
         nameInputLayout = findViewById(R.id.nameInputLayout);
@@ -194,6 +237,74 @@ public class AddHikeActivity extends AppCompatActivity {
         cancelButton.setOnClickListener(v -> finish());
     }
     
+    private void setupLocationListeners() {
+        getGpsButton.setOnClickListener(v -> captureGpsLocation());
+        pickMapButton.setOnClickListener(v -> openMapPicker());
+    }
+    
+    /**
+     * Capture location from device GPS
+     */
+    private void captureGpsLocation() {
+        locationManager.getLastLocation(new LocationManager.LocationCallback() {
+            @Override
+            public void onLocationReceived(Double latitude, Double longitude) {
+                selectedLatitude = latitude;
+                selectedLongitude = longitude;
+                updateLocationDisplay();
+                Toast.makeText(AddHikeActivity.this, "Location captured from GPS", Toast.LENGTH_SHORT).show();
+            }
+            
+            @Override
+            public void onLocationError(String errorMessage) {
+                if (errorMessage.contains("not granted")) {
+                    showLocationPermissionDialog();
+                } else {
+                    Toast.makeText(AddHikeActivity.this, "GPS Error: " + errorMessage, Toast.LENGTH_LONG).show();
+                }
+            }
+        });
+    }
+    
+    /**
+     * Open map picker for manual location selection
+     */
+    private void openMapPicker() {
+        Intent mapIntent = new Intent(AddHikeActivity.this, PickLocationActivity.class);
+        if (selectedLatitude != null && selectedLongitude != null) {
+            mapIntent.putExtra("latitude", selectedLatitude);
+            mapIntent.putExtra("longitude", selectedLongitude);
+        }
+        mapPickerLauncher.launch(mapIntent);
+    }
+    
+    /**
+     * Update location display in UI (latitude and longitude fields)
+     */
+    private void updateLocationDisplay() {
+        if (selectedLatitude != null && selectedLongitude != null) {
+            latitudeEditText.setText(String.format("%.6f", selectedLatitude));
+            longitudeEditText.setText(String.format("%.6f", selectedLongitude));
+        }
+    }
+    
+    /**
+     * Show dialog to request location permission activation
+     */
+    private void showLocationPermissionDialog() {
+        new android.app.AlertDialog.Builder(this)
+            .setTitle("Location Permission Required")
+            .setMessage("To capture GPS location, please enable location permissions in app settings.\n\n" +
+                "Go to Settings → Apps → M-Hike → Permissions → Location → Allow")
+            .setPositiveButton("Open Settings", (dialog, which) -> {
+                Intent intent = new Intent(android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS);
+                intent.setData(android.net.Uri.parse("package:" + getPackageName()));
+                startActivity(intent);
+            })
+            .setNegativeButton("Cancel", null)
+            .show();
+    }
+    
     private void saveHike() {
         // Clear previous errors
         clearErrors();
@@ -225,12 +336,22 @@ public class AddHikeActivity extends AppCompatActivity {
             editingHike.parkingAvailable = parking;
             editingHike.privacy = privacy;
             editingHike.description = description;
+            // Update location if captured
+            if (selectedLatitude != null && selectedLongitude != null) {
+                editingHike.latitude = selectedLatitude.floatValue();
+                editingHike.longitude = selectedLongitude.floatValue();
+            }
             viewModel.updateHike(editingHike);
         } else {
             // Create new hike
             Hike newHike = new Hike(name, location, date, time, length, difficulty, parking);
             newHike.description = description;
             newHike.privacy = privacy;
+            // Add location if captured
+            if (selectedLatitude != null && selectedLongitude != null) {
+                newHike.latitude = selectedLatitude.floatValue();
+                newHike.longitude = selectedLongitude.floatValue();
+            }
             viewModel.insertHike(newHike);
         }
     }
@@ -302,6 +423,14 @@ public class AddHikeActivity extends AppCompatActivity {
         parkingSwitch.setChecked(hike.parkingAvailable);
         privacyAutoComplete.setText(hike.privacy, false);
         descriptionEditText.setText(hike.description);
+        
+        // Load location if available
+        if (hike.latitude != 0 && hike.longitude != 0) {
+            selectedLatitude = (double) hike.latitude;
+            selectedLongitude = (double) hike.longitude;
+            latitudeEditText.setText(String.format("%.6f", selectedLatitude));
+            longitudeEditText.setText(String.format("%.6f", selectedLongitude));
+        }
     }
     
     private void observeMessages() {

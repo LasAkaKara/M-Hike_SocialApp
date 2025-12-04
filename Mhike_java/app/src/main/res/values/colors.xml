@@ -47,6 +47,8 @@
     <color name="difficulty_easy">#4CAF50</color>
     <color name="difficulty_medium">#FF9800</color>
     <color name="difficulty_hard">#D32F2F</color>
+    <color name="green_600">#43A047</color>
+    <color name="red_600">#E53935</color>
     
     <!-- Legacy colors (keeping for compatibility) -->
     <color name="purple_200">#FFBB86FC</color>

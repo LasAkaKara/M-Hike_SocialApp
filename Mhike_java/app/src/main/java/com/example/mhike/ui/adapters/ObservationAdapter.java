@@ -74,6 +74,7 @@ public class ObservationAdapter extends RecyclerView.Adapter<ObservationAdapter.
         private final MaterialTextView observationTitle;
         private final MaterialTextView observationTime;
         private final MaterialTextView observationComment;
+        private final MaterialTextView observationLocation;
         private final ImageView observationImage;
         private final MaterialButton statusBadge;
         private final MaterialButton deleteButton;
@@ -90,6 +91,7 @@ public class ObservationAdapter extends RecyclerView.Adapter<ObservationAdapter.
             observationTitle = itemView.findViewById(R.id.observationTitle);
             observationTime = itemView.findViewById(R.id.observationTime);
             observationComment = itemView.findViewById(R.id.observationComment);
+            observationLocation = itemView.findViewById(R.id.observationLocation);
             observationImage = itemView.findViewById(R.id.observationImage);
             statusBadge = itemView.findViewById(R.id.statusBadge);
             deleteButton = itemView.findViewById(R.id.deleteObservationButton);
@@ -122,6 +124,15 @@ public class ObservationAdapter extends RecyclerView.Adapter<ObservationAdapter.
                 observationComment.setVisibility(android.view.View.VISIBLE);
             } else {
                 observationComment.setVisibility(android.view.View.GONE);
+            }
+            
+            // Set location visibility
+            if (observation.latitude != null && observation.longitude != null) {
+                observationLocation.setText(String.format("📍 %.4f, %.4f", 
+                    observation.latitude, observation.longitude));
+                observationLocation.setVisibility(android.view.View.VISIBLE);
+            } else {
+                observationLocation.setVisibility(android.view.View.GONE);
             }
             
             // Load and display image if exists

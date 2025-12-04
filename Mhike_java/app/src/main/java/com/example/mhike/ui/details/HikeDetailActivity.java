@@ -7,6 +7,7 @@ import android.os.Bundle;
 import android.provider.MediaStore;
 import android.view.MenuItem;
 import android.widget.ImageView;
+import android.widget.Toast;
 
 import androidx.activity.result.ActivityResultLauncher;
 import androidx.activity.result.contract.ActivityResultContracts;
@@ -19,8 +20,10 @@ import androidx.recyclerview.widget.RecyclerView;
 import com.example.mhike.R;
 import com.example.mhike.database.entities.Hike;
 import com.example.mhike.database.entities.Observation;
+import com.example.mhike.services.LocationManager;
 import com.example.mhike.ui.add.AddHikeActivity;
 import com.example.mhike.ui.adapters.ObservationAdapter;
+import com.example.mhike.ui.location.PickLocationActivity;
 import com.example.mhike.ui.viewmodels.HikeViewModel;
 import com.google.android.material.button.MaterialButton;
 import com.google.android.material.snackbar.Snackbar;
@@ -60,9 +63,17 @@ public class HikeDetailActivity extends AppCompatActivity implements Observation
     // For time picker and image upload
     private String selectedObservationTime;
     private Uri selectedImageUri;
+    private Double selectedLatitude;
+    private Double selectedLongitude;
     
     // Activity result launcher for image picker
     private ActivityResultLauncher<String> imagePickerLauncher;
+    
+    // Activity result launcher for map picker
+    private ActivityResultLauncher<Intent> mapPickerLauncher;
+    
+    // Location manager
+    private LocationManager locationManager;
     
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -70,9 +81,11 @@ public class HikeDetailActivity extends AppCompatActivity implements Observation
         setContentView(R.layout.activity_hike_detail);
         
         viewModel = new ViewModelProvider(this).get(HikeViewModel.class);
+        locationManager = new LocationManager(this);
         
-        // Initialize activity result launcher for image picker
+        // Initialize activity result launchers
         initializeImagePickerLauncher();
+        initializeMapPickerLauncher();
         
         hikeId = getIntent().getLongExtra("hike_id", -1);
         if (hikeId == -1) {
@@ -97,6 +110,21 @@ public class HikeDetailActivity extends AppCompatActivity implements Observation
                 if (uri != null) {
                     selectedImageUri = uri;
                     updateImagePreview();
+                }
+            }
+        );
+    }
+    
+    /**
+     * Initialize the map picker launcher
+     */
+    private void initializeMapPickerLauncher() {
+        mapPickerLauncher = registerForActivityResult(
+            new ActivityResultContracts.StartActivityForResult(),
+            result -> {
+                if (result.getResultCode() == RESULT_OK && result.getData() != null) {
+                    selectedLatitude = result.getData().getDoubleExtra("latitude", 0);
+                    selectedLongitude = result.getData().getDoubleExtra("longitude", 0);
                 }
             }
         );
@@ -231,11 +259,21 @@ public class HikeDetailActivity extends AppCompatActivity implements Observation
     private void showAddObservationDialog(Observation observation, boolean isNew) {
         android.app.AlertDialog.Builder builder = new android.app.AlertDialog.Builder(this);
         
-        // Reset selected image URI for new observations
+        // Reset selected image URI and location for new observations
         if (isNew) {
             selectedImageUri = null;
-        } else if (observation.imageUri != null) {
-            selectedImageUri = Uri.parse(observation.imageUri);
+            selectedLatitude = null;
+            selectedLongitude = null;
+        } else {
+            if (observation.imageUri != null) {
+                selectedImageUri = Uri.parse(observation.imageUri);
+            }
+            if (observation.latitude != null) {
+                selectedLatitude = observation.latitude.doubleValue();
+            }
+            if (observation.longitude != null) {
+                selectedLongitude = observation.longitude.doubleValue();
+            }
         }
         
         // Create dialog content layout
@@ -268,6 +306,73 @@ public class HikeDetailActivity extends AppCompatActivity implements Observation
             commentInput.setText(observation.comments);
         }
         dialogLayout.addView(commentInput);
+        
+        // Location display
+        MaterialTextView locationDisplay = new MaterialTextView(this);
+        locationDisplay.setPadding(16, 12, 16, 12);
+        locationDisplay.setTextSize(14);
+        if (selectedLatitude != null && selectedLongitude != null) {
+            locationDisplay.setText(String.format("📍 Location: %.4f, %.4f", selectedLatitude, selectedLongitude));
+        } else {
+            locationDisplay.setText("📍 No location selected");
+        }
+        dialogLayout.addView(locationDisplay);
+        
+        // Location buttons layout
+        android.widget.LinearLayout locationButtonsLayout = new android.widget.LinearLayout(this);
+        locationButtonsLayout.setOrientation(android.widget.LinearLayout.HORIZONTAL);
+        locationButtonsLayout.setPadding(0, 12, 0, 12);
+        locationButtonsLayout.setWeightSum(1);
+        
+        // Get GPS location button
+        android.widget.Button getGpsButton = new android.widget.Button(this);
+        getGpsButton.setText("Get GPS Location");
+        getGpsButton.setLayoutParams(new android.widget.LinearLayout.LayoutParams(
+            0,
+            android.widget.LinearLayout.LayoutParams.WRAP_CONTENT,
+            0.5f
+        ));
+        getGpsButton.setOnClickListener(v -> {
+            locationManager.getLastLocation(new LocationManager.LocationCallback() {
+                @Override
+                public void onLocationReceived(Double latitude, Double longitude) {
+                    selectedLatitude = latitude;
+                    selectedLongitude = longitude;
+                    locationDisplay.setText(String.format("📍 Location: %.4f, %.4f", latitude, longitude));
+                    Toast.makeText(HikeDetailActivity.this, "Location captured from GPS", Toast.LENGTH_SHORT).show();
+                }
+                
+                @Override
+                public void onLocationError(String errorMessage) {
+                    if (errorMessage.contains("not granted")) {
+                        showLocationPermissionDialog();
+                    } else {
+                        Toast.makeText(HikeDetailActivity.this, "GPS Error: " + errorMessage, Toast.LENGTH_LONG).show();
+                    }
+                }
+            });
+        });
+        locationButtonsLayout.addView(getGpsButton);
+        
+        // Pick on map button
+        android.widget.Button pickMapButton = new android.widget.Button(this);
+        pickMapButton.setText("Pick on Map");
+        pickMapButton.setLayoutParams(new android.widget.LinearLayout.LayoutParams(
+            0,
+            android.widget.LinearLayout.LayoutParams.WRAP_CONTENT,
+            0.5f
+        ));
+        pickMapButton.setOnClickListener(v -> {
+            Intent mapIntent = new Intent(HikeDetailActivity.this, PickLocationActivity.class);
+            if (selectedLatitude != null && selectedLongitude != null) {
+                mapIntent.putExtra("latitude", selectedLatitude);
+                mapIntent.putExtra("longitude", selectedLongitude);
+            }
+            mapPickerLauncher.launch(mapIntent);
+        });
+        locationButtonsLayout.addView(pickMapButton);
+        
+        dialogLayout.addView(locationButtonsLayout);
         
         // Image preview (if image exists)
         ImageView imagePreview = new ImageView(this);
@@ -343,6 +448,12 @@ public class HikeDetailActivity extends AppCompatActivity implements Observation
                     observation.comments = comment;
                     if (!time.isEmpty()) {
                         observation.time = time;
+                    }
+                    
+                    // Save location if selected
+                    if (selectedLatitude != null && selectedLongitude != null) {
+                        observation.latitude = selectedLatitude.floatValue();
+                        observation.longitude = selectedLongitude.floatValue();
                     }
                     
                     // Save image if selected
@@ -430,6 +541,23 @@ public class HikeDetailActivity extends AppCompatActivity implements Observation
                 showSnackbar(message);
             }
         });
+    }
+    
+    /**
+     * Show dialog to request location permission activation
+     */
+    private void showLocationPermissionDialog() {
+        new android.app.AlertDialog.Builder(this)
+            .setTitle("Location Permission Required")
+            .setMessage("To capture GPS location, please enable location permissions in app settings.\n\n" +
+                "Go to Settings → Apps → M-Hike → Permissions → Location → Allow")
+            .setPositiveButton("Open Settings", (dialog, which) -> {
+                Intent intent = new Intent(android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS);
+                intent.setData(android.net.Uri.parse("package:" + getPackageName()));
+                startActivity(intent);
+            })
+            .setNegativeButton("Cancel", null)
+            .show();
     }
     
     private void showSnackbar(String message) {
