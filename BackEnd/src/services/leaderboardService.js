@@ -11,7 +11,7 @@ class LeaderboardService {
                COUNT(h.id) as hikeCount,
                ROW_NUMBER() OVER (ORDER BY COALESCE(SUM(h.length), 0) DESC) as rank
         FROM users u
-        LEFT JOIN hikes h ON u.id = h.userId AND h.privacy = 'public'
+        LEFT JOIN hikes h ON u.id = h.userId AND h.privacy = 'Public'
       `;
       const params = [];
 
@@ -43,7 +43,7 @@ class LeaderboardService {
                COALESCE(SUM(h.length), 0) as totalDistance,
                ROW_NUMBER() OVER (ORDER BY COUNT(h.id) DESC) as rank
         FROM users u
-        LEFT JOIN hikes h ON u.id = h.userId AND h.privacy = 'public'
+        LEFT JOIN hikes h ON u.id = h.userId AND h.privacy = 'Public'
       `;
       const params = [];
 
@@ -77,7 +77,7 @@ class LeaderboardService {
                COUNT(h.id) as totalHikes,
                ROW_NUMBER() OVER (ORDER BY COUNT(CASE WHEN h.difficulty = 'Hard' THEN 1 END) DESC) as rank
         FROM users u
-        LEFT JOIN hikes h ON u.id = h.userId AND h.privacy = 'public'
+        LEFT JOIN hikes h ON u.id = h.userId AND h.privacy = 'Public'
       `;
       const params = [];
 
@@ -115,7 +115,7 @@ class LeaderboardService {
                ROW_NUMBER() OVER (ORDER BY COALESCE(SUM(o.confirmations), 0) DESC) as rank
         FROM users u
         LEFT JOIN observations o ON u.id = o.userId
-        LEFT JOIN hikes h ON o.hikeId = h.id AND h.privacy = 'public'
+        LEFT JOIN hikes h ON o.hikeId = h.id AND h.privacy = 'Public'
       `;
       const params = [];
 

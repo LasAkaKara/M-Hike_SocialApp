@@ -111,7 +111,7 @@ class Feed {
        FROM hikes h
        WHERE h.userId IN (
          SELECT followedId FROM follows WHERE followerId = $1
-       ) AND h.privacy = 'public'
+       ) AND h.privacy = 'Public'
        AND h.id NOT IN (
          SELECT itemId FROM feeds WHERE userId = $1 AND itemType = 'hike'
        )
@@ -130,7 +130,7 @@ class Feed {
        LEFT JOIN hikes h ON o.hikeId = h.id
        WHERE o.userId IN (
          SELECT followedId FROM follows WHERE followerId = $1
-       ) AND h.privacy = 'public'
+       ) AND h.privacy = 'Public'
        AND o.id NOT IN (
          SELECT itemId FROM feeds WHERE userId = $1 AND itemType = 'observation'
        )

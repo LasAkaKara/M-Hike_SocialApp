@@ -18,10 +18,11 @@ import com.example.mhike.database.entities.Observation;
  * Schema version management:
  * - Version 1: Initial schema with Hike and Observation tables
  * - Version 2: Added index on Observation.hikeId foreign key for query performance
+ * - Version 3: Added isDeleted flag to Hike table for deletion sync tracking
  */
 @Database(
     entities = {Hike.class, Observation.class},
-    version = 2,
+    version = 3,
     exportSchema = false
 )
 public abstract class AppDatabase extends RoomDatabase {

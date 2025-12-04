@@ -32,6 +32,13 @@ public class Hike {
     // Privacy and status
     public String privacy;  // "Public" or "Private"
     public int syncStatus;  // 0 = local only, 1 = synced to cloud
+    public boolean isDeleted;  // 0 = active, 1 = deleted (marked for deletion sync)
+    
+    // User information (for feed display)
+    @Ignore
+    public String userName;  // Author's username
+    @Ignore
+    public String userAvatarUrl;  // Author's avatar URL
     
     // Metadata
     public long createdAt;  // Timestamp in milliseconds

@@ -81,14 +81,15 @@ public class HikeViewModel extends AndroidViewModel {
     }
     
     /**
-     * Delete a hike
+     * Delete a hike (marks as deleted for sync, doesn't physically remove)
      */
     public void deleteHike(Hike hike) {
         new Thread(() -> {
             try {
+                // Mark hike as deleted (for sync) instead of physically deleting
+                hikeDao.markAsDeleted(hike.id, System.currentTimeMillis());
                 // Delete observations first (due to foreign key constraint)
                 observationDao.deleteObservationsForHike(hike.id);
-                hikeDao.delete(hike);
                 postSuccessMessage("Hike deleted successfully");
             } catch (Exception e) {
                 postErrorMessage("Failed to delete hike: " + e.getMessage());
@@ -391,5 +392,54 @@ public class HikeViewModel extends AndroidViewModel {
         );
         
         syncService.getSyncStatus(callback);
+    }
+    
+    /**
+     * Sync hikes from cloud to offline (download public hikes)
+     */
+    public void syncCloudToOffline(String authToken, SyncService.CloudSyncCallback callback) {
+        isLoading.postValue(true);
+        
+        SyncService syncService = new SyncService(
+            getApplication(),
+            new okhttp3.OkHttpClient(),
+            authToken
+        );
+        
+        syncService.syncCloudToOffline(new SyncService.CloudSyncCallback() {
+            @Override
+            public void onCloudSyncStart() {
+                isLoading.postValue(true);
+                if (callback != null) {
+                    callback.onCloudSyncStart();
+                }
+            }
+            
+            @Override
+            public void onCloudSyncProgress(int completed, int total) {
+                if (callback != null) {
+                    callback.onCloudSyncProgress(completed, total);
+                }
+            }
+            
+            @Override
+            public void onCloudSyncSuccess(SyncService.CloudSyncResult result) {
+                isLoading.postValue(false);
+                String message = "Downloaded " + result.successfulInserts + "/" + result.totalDownloaded + " hikes";
+                postSuccessMessage(message);
+                if (callback != null) {
+                    callback.onCloudSyncSuccess(result);
+                }
+            }
+            
+            @Override
+            public void onCloudSyncError(String errorMessage) {
+                isLoading.postValue(false);
+                postErrorMessage(errorMessage);
+                if (callback != null) {
+                    callback.onCloudSyncError(errorMessage);
+                }
+            }
+        });
     }
 }

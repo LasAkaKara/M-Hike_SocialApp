@@ -27,7 +27,7 @@ class SearchService {
         FROM hikes h
         LEFT JOIN users u ON h.userId = u.id
         LEFT JOIN observations o ON h.id = o.hikeId
-        WHERE h.privacy = 'public'
+        WHERE h.privacy = 'Public'
       `;
       const params = [];
       let paramCount = 0;
@@ -135,7 +135,7 @@ class SearchService {
         LEFT JOIN users u ON o.userId = u.id
         LEFT JOIN hikes h ON o.hikeId = h.id
         LEFT JOIN observation_comments c ON o.id = c.observationId
-        WHERE h.privacy = 'public'
+        WHERE h.privacy = 'Public'
       `;
       const params = [];
       let paramCount = 0;
@@ -226,12 +226,11 @@ class SearchService {
       } = filters;
 
       let query = `
-        SELECT u.id, u.username, u.avatarUrl, u.bio, u.region,
-               u.followerCount, u.followingCount,
+        SELECT u.id, u.username, u.avatarUrl, u.bio, u.region, u.followerCount, u.followingCount,
                COUNT(h.id) as hikeCount,
                COALESCE(SUM(h.length), 0) as totalDistance
         FROM users u
-        LEFT JOIN hikes h ON u.id = h.userId AND h.privacy = 'public'
+        LEFT JOIN hikes h ON u.id = h.userId AND h.privacy = 'Public'
         WHERE 1=1
       `;
       const params = [];
@@ -251,17 +250,17 @@ class SearchService {
 
       if (minFollowers !== undefined) {
         paramCount++;
-        query += ` AND u.followerCount >= $${paramCount}`;
+        query += ` AND (SELECT COUNT(*) FROM follows WHERE followedId = u.id) >= $${paramCount}`;
         params.push(minFollowers);
       }
 
       if (maxFollowers !== undefined) {
         paramCount++;
-        query += ` AND u.followerCount <= $${paramCount}`;
+        query += ` AND (SELECT COUNT(*) FROM follows WHERE followedId = u.id) <= $${paramCount}`;
         params.push(maxFollowers);
       }
 
-      query += ` GROUP BY u.id, u.username, u.avatarUrl, u.bio, u.region, u.followerCount, u.followingCount`;
+      query += ` GROUP BY u.id, u.username, u.avatarUrl, u.bio, u.region`;
 
       // Sorting
       const validSortFields = [
@@ -297,7 +296,7 @@ class SearchService {
         SELECT 'hike' as type, h.id, h.name as title, h.location, h.description, u.username, h.createdAt
         FROM hikes h
         LEFT JOIN users u ON h.userId = u.id
-        WHERE h.privacy = 'public' AND (h.name ILIKE $1 OR h.location ILIKE $1 OR h.description ILIKE $1)
+        WHERE h.privacy = 'Public' AND (h.name ILIKE $1 OR h.location ILIKE $1 OR h.description ILIKE $1)
         
         UNION ALL
         
@@ -305,7 +304,7 @@ class SearchService {
         FROM observations o
         LEFT JOIN users u ON o.userId = u.id
         LEFT JOIN hikes h ON o.hikeId = h.id
-        WHERE h.privacy = 'public' AND (o.title ILIKE $1)
+        WHERE h.privacy = 'Public' AND (o.title ILIKE $1)
         
         UNION ALL
         
@@ -335,7 +334,7 @@ class SearchService {
         const hikeResult = await db.query(
           `SELECT DISTINCT h.name as suggestion, 'hike' as type
            FROM hikes h
-           WHERE h.privacy = 'public' AND h.name ILIKE $1
+           WHERE h.privacy = 'Public' AND h.name ILIKE $1
            LIMIT $2`,
           [searchTerm, limit]
         );
@@ -349,7 +348,7 @@ class SearchService {
         const locationResult = await db.query(
           `SELECT DISTINCT h.location as suggestion, 'location' as type
            FROM hikes h
-           WHERE h.privacy = 'public' AND h.location ILIKE $1
+           WHERE h.privacy = 'Public' AND h.location ILIKE $1
            LIMIT $2`,
           [searchTerm, limit]
         );
@@ -376,9 +375,9 @@ class SearchService {
       // Return all suggestions
       const allResult = await db.query(
         `
-        SELECT h.name as suggestion, 'hike' as type FROM hikes h WHERE h.privacy = 'public' AND h.name ILIKE $1 LIMIT $2
+        SELECT h.name as suggestion, 'hike' as type FROM hikes h WHERE h.privacy = 'Public' AND h.name ILIKE $1 LIMIT $2
         UNION ALL
-        SELECT h.location as suggestion, 'location' as type FROM hikes h WHERE h.privacy = 'public' AND h.location ILIKE $1 LIMIT $2
+        SELECT h.location as suggestion, 'location' as type FROM hikes h WHERE h.privacy = 'Public' AND h.location ILIKE $1 LIMIT $2
         UNION ALL
         SELECT u.username as suggestion, 'user' as type FROM users u WHERE u.username ILIKE $1 LIMIT $2
         `,

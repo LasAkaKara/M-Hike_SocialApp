@@ -43,6 +43,22 @@ exports.getHikesByUser = async (req, res, next) => {
   }
 };
 
+// Get current authenticated user's hikes (for sync)
+exports.getMyHikes = async (req, res, next) => {
+  try {
+    const userId = req.userId; // From verifyToken middleware
+    const { limit = 50, offset = 0 } = req.query;
+    const hikes = await Hike.findByUserId(
+      userId,
+      parseInt(limit),
+      parseInt(offset)
+    );
+    res.json(hikes);
+  } catch (err) {
+    next(err);
+  }
+};
+
 // Get nearby hikes
 exports.getNearbyHikes = async (req, res, next) => {
   try {

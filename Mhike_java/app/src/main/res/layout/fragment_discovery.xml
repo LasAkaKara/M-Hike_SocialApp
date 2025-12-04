@@ -1,34 +1,27 @@
 <?xml version="1.0" encoding="utf-8"?>
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:orientation="vertical"
-    android:gravity="center"
-    android:background="@color/white">
+    android:background="@color/white"
+    android:fitsSystemWindows="true">
 
-    <ImageView
-        android:layout_width="100dp"
-        android:layout_height="100dp"
-        android:src="@drawable/ic_launcher_foreground"
-        android:contentDescription="@string/community_feed"
-        android:tint="@color/gray_600"
-        android:alpha="0.5" />
-
-    <TextView
-        android:layout_width="wrap_content"
+    <!-- TabLayout for discovery tabs -->
+    <com.google.android.material.tabs.TabLayout
+        android:id="@+id/tabLayout"
+        android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="@string/community_feed"
-        android:textSize="20sp"
-        android:textStyle="bold"
-        android:textColor="@color/gray_900"
-        android:layout_marginTop="16dp" />
+        app:tabMode="fixed"
+        app:tabGravity="center"
+        android:background="@color/white"
+        app:elevation="4dp" />
 
-    <TextView
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="@string/coming_soon"
-        android:textSize="16sp"
-        android:textColor="@color/gray_600"
-        android:layout_marginTop="8dp" />
+    <!-- ViewPager2 for tab content -->
+    <androidx.viewpager2.widget.ViewPager2
+        android:id="@+id/viewPager"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1" />
 
 </LinearLayout>

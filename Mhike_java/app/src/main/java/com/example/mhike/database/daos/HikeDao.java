@@ -43,15 +43,15 @@ public interface HikeDao {
     int delete(Hike hike);
     
     /**
-     * Get all hikes as LiveData for real-time UI updates.
+     * Get all hikes as LiveData for real-time UI updates (excluding deleted).
      */
-    @Query("SELECT * FROM hikes ORDER BY date DESC, time DESC")
+    @Query("SELECT * FROM hikes WHERE isDeleted = 0 ORDER BY date DESC, time DESC")
     LiveData<List<Hike>> getAllHikes();
     
     /**
-     * Get all hikes as a List (blocking call).
+     * Get all hikes as a List (blocking call, excluding deleted).
      */
-    @Query("SELECT * FROM hikes ORDER BY date DESC, time DESC")
+    @Query("SELECT * FROM hikes WHERE isDeleted = 0 ORDER BY date DESC, time DESC")
     List<Hike> getAllHikesSync();
     
     /**
@@ -141,6 +141,36 @@ public interface HikeDao {
      */
     @Query("SELECT SUM(length) FROM hikes")
     LiveData<Float> getTotalDistance();
+    
+    /**
+     * Get a hike by cloud ID (for deduplication during cloud-to-offline sync).
+     */
+    @Query("SELECT * FROM hikes WHERE cloudId = :cloudId")
+    Hike getHikeByCloudId(String cloudId);
+    
+    /**
+     * Get a hike by cloud ID (synchronous - blocking call for background threads).
+     */
+    @Query("SELECT * FROM hikes WHERE cloudId = :cloudId")
+    Hike getHikeByCloudIdSync(String cloudId);
+    
+    /**
+     * Get hikes marked as deleted (for syncing deletions to cloud).
+     */
+    @Query("SELECT * FROM hikes WHERE isDeleted = 1")
+    List<Hike> getDeletedHikesSync();
+    
+    /**
+     * Mark a hike as deleted instead of physically deleting it.
+     */
+    @Query("UPDATE hikes SET isDeleted = 1, updatedAt = :timestamp WHERE id = :hikeId")
+    void markAsDeleted(long hikeId, long timestamp);
+    
+    /**
+     * Permanently delete a hike from the database.
+     */
+    @Query("DELETE FROM hikes WHERE id = :hikeId")
+    void permanentlyDelete(long hikeId);
     
     /**
      * Delete all hikes (for reset functionality).

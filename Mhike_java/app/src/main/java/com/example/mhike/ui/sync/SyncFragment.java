@@ -33,10 +33,15 @@ public class SyncFragment extends Fragment {
     // UI Components
     private Button syncButton;
     private Button checkStatusButton;
+    private Button downloadButton;
     private ProgressBar syncProgress;
+    private ProgressBar downloadProgress;
     private TextView statusText;
     private TextView progressText;
     private TextView syncResultText;
+    private TextView downloadStatusText;
+    private TextView downloadProgressText;
+    private TextView downloadResultText;
     
     private View rootView;
     
@@ -59,13 +64,20 @@ public class SyncFragment extends Fragment {
                              Bundle savedInstanceState) {
         rootView = inflater.inflate(R.layout.fragment_sync, container, false);
         
-        // Initialize UI components
+        // Initialize UI components for offline-to-cloud sync
         syncButton = rootView.findViewById(R.id.syncButton);
         checkStatusButton = rootView.findViewById(R.id.checkStatusButton);
         syncProgress = rootView.findViewById(R.id.syncProgress);
         statusText = rootView.findViewById(R.id.statusText);
         progressText = rootView.findViewById(R.id.progressText);
         syncResultText = rootView.findViewById(R.id.syncResultText);
+        
+        // Initialize UI components for cloud-to-offline sync
+        downloadButton = rootView.findViewById(R.id.downloadButton);
+        downloadProgress = rootView.findViewById(R.id.downloadProgress);
+        downloadStatusText = rootView.findViewById(R.id.downloadStatusText);
+        downloadProgressText = rootView.findViewById(R.id.downloadProgressText);
+        downloadResultText = rootView.findViewById(R.id.downloadResultText);
         
         return rootView;
     }
@@ -101,6 +113,7 @@ public class SyncFragment extends Fragment {
         // Setup click listeners
         syncButton.setOnClickListener(v -> performSync(authToken));
         checkStatusButton.setOnClickListener(v -> checkSyncStatus(authToken));
+        downloadButton.setOnClickListener(v -> performCloudDownload(authToken));
         
         // Initialize UI state
         initializeUI(authToken);
@@ -121,7 +134,7 @@ public class SyncFragment extends Fragment {
     }
     
     /**
-     * Perform sync operation
+     * Perform sync operation (offline-to-cloud)
      */
     private void performSync(String authToken) {
         if (authToken == null) {
@@ -137,34 +150,54 @@ public class SyncFragment extends Fragment {
         viewModel.syncOfflineHikesToCloud(authToken, new SyncService.SyncCallback() {
             @Override
             public void onSyncStart(int totalHikes) {
-                statusText.setText("Syncing " + totalHikes + " hikes...");
-                syncProgress.setMax(totalHikes);
-                syncProgress.setProgress(0);
+                // Post UI updates to main thread
+                if (rootView != null) {
+                    rootView.post(() -> {
+                        statusText.setText("Syncing " + totalHikes + " hikes...");
+                        syncProgress.setMax(totalHikes);
+                        syncProgress.setProgress(0);
+                    });
+                }
             }
             
             @Override
             public void onSyncProgress(int completed, int total) {
-                syncProgress.setProgress(completed);
-                progressText.setText(completed + " / " + total + " hikes synced");
+                // Post UI updates to main thread
+                if (rootView != null) {
+                    rootView.post(() -> {
+                        syncProgress.setProgress(completed);
+                        progressText.setText(completed + " / " + total + " hikes synced");
+                    });
+                }
             }
             
             @Override
             public void onSyncSuccess(SyncService.SyncResult result) {
-                statusText.setText("Sync completed!");
-                
-                String resultMsg = "✓ Successful: " + result.successfulUploads + "\n" +
-                                   "✗ Failed: " + result.failedUploads + "\n" +
-                                   "⊘ Skipped: " + result.skippedHikes + "\n" +
-                                   "⏱ Duration: " + result.syncDuration + "ms";
-                syncResultText.setText(resultMsg);
-                syncProgress.setProgress(result.totalHikes);
+                // Post UI updates to main thread
+                if (rootView != null) {
+                    rootView.post(() -> {
+                        statusText.setText("Sync completed!");
+                        
+                        String resultMsg = "✓ Successful: " + result.successfulUploads + "\n" +
+                                           "✗ Failed: " + result.failedUploads + "\n" +
+                                           "⊘ Skipped: " + result.skippedHikes + "\n" +
+                                           "⏱ Duration: " + result.syncDuration + "ms";
+                        syncResultText.setText(resultMsg);
+                        syncProgress.setProgress(result.totalHikes);
+                    });
+                }
             }
             
             @Override
             public void onSyncError(String errorMessage) {
-                statusText.setText("Sync failed");
-                syncResultText.setText("Error: " + errorMessage);
-                showSnackbar("Sync error: " + errorMessage, Snackbar.LENGTH_LONG);
+                // Post UI updates to main thread
+                if (rootView != null) {
+                    rootView.post(() -> {
+                        statusText.setText("Sync failed");
+                        syncResultText.setText("Error: " + errorMessage);
+                        showSnackbar("Sync error: " + errorMessage, Snackbar.LENGTH_LONG);
+                    });
+                }
             }
         });
     }
@@ -181,29 +214,105 @@ public class SyncFragment extends Fragment {
         viewModel.getSyncStatus(authToken, new SyncService.StatusCallback() {
             @Override
             public void onStatusReady(SyncService.SyncStatus status) {
-                String statusMsg = "Total Hikes: " + status.totalHikes + "\n" +
-                                   "Synced: " + status.syncedHikes + "\n" +
-                                   "Offline: " + status.offlineHikes + "\n" +
-                                   "Sync Progress: " + status.syncPercentage + "%";
-                statusText.setText(statusMsg);
-                
-                syncProgress.setMax(status.totalHikes);
-                syncProgress.setProgress(status.syncedHikes);
-                
-                // Enable/disable sync button based on offline hikes
-                syncButton.setEnabled(status.offlineHikes > 0);
-                
-                if (status.offlineHikes == 0) {
-                    syncButton.setText("All Synced");
-                } else {
-                    syncButton.setText("Sync " + status.offlineHikes + " Hikes");
+                // Post UI updates to main thread
+                if (rootView != null) {
+                    rootView.post(() -> {
+                        String statusMsg = "Total Hikes: " + status.totalHikes + "\n" +
+                                           "Synced: " + status.syncedHikes + "\n" +
+                                           "Offline: " + status.offlineHikes + "\n" +
+                                           "Sync Progress: " + status.syncPercentage + "%";
+                        statusText.setText(statusMsg);
+                        
+                        syncProgress.setMax(status.totalHikes);
+                        syncProgress.setProgress(status.syncedHikes);
+                        
+                        // Enable/disable sync button based on offline hikes
+                        syncButton.setEnabled(status.offlineHikes > 0);
+                        
+                        if (status.offlineHikes == 0) {
+                            syncButton.setText("All Synced");
+                        } else {
+                            syncButton.setText("Sync " + status.offlineHikes + " Hikes");
+                        }
+                    });
                 }
             }
             
             @Override
             public void onError(String errorMessage) {
-                statusText.setText("Error: " + errorMessage);
-                showSnackbar("Failed to check sync status", Snackbar.LENGTH_LONG);
+                // Post UI updates to main thread
+                if (rootView != null) {
+                    rootView.post(() -> {
+                        statusText.setText("Error: " + errorMessage);
+                        showSnackbar("Failed to check sync status", Snackbar.LENGTH_LONG);
+                    });
+                }
+            }
+        });
+    }
+    
+    /**
+     * Perform cloud-to-offline sync (download hikes from cloud)
+     */
+    private void performCloudDownload(String authToken) {
+        if (authToken == null) {
+            showSnackbar("Authentication required", Snackbar.LENGTH_LONG);
+            return;
+        }
+        
+        downloadProgress.setProgress(0);
+        downloadProgressText.setText("");
+        downloadResultText.setText("");
+        downloadStatusText.setText("Downloading hikes from cloud...");
+        
+        viewModel.syncCloudToOffline(authToken, new SyncService.CloudSyncCallback() {
+            @Override
+            public void onCloudSyncStart() {
+                // Post UI update to main thread
+                if (rootView != null) {
+                    rootView.post(() -> downloadStatusText.setText("Preparing download..."));
+                }
+            }
+            
+            @Override
+            public void onCloudSyncProgress(int completed, int total) {
+                // Post UI updates to main thread
+                if (rootView != null) {
+                    rootView.post(() -> {
+                        downloadProgress.setMax(total);
+                        downloadProgress.setProgress(completed);
+                        downloadProgressText.setText(completed + " / " + total + " hikes downloaded");
+                    });
+                }
+            }
+            
+            @Override
+            public void onCloudSyncSuccess(SyncService.CloudSyncResult result) {
+                // Post UI updates to main thread
+                if (rootView != null) {
+                    rootView.post(() -> {
+                        downloadStatusText.setText("Download completed!");
+                        
+                        String resultMsg = "✓ Downloaded: " + result.successfulInserts + "\n" +
+                                           "✗ Failed: " + result.failedInserts + "\n" +
+                                           "⊘ Duplicates: " + result.skippedDuplicates + "\n" +
+                                           "⏱ Duration: " + result.syncDuration + "ms";
+                        downloadResultText.setText(resultMsg);
+                        downloadProgress.setProgress(result.totalDownloaded);
+                    });
+                }
+            }
+            
+            @Override
+            public void onCloudSyncError(String errorMessage) {
+                // Post UI updates to main thread
+                if (rootView != null) {
+                    rootView.post(() -> {
+                        downloadStatusText.setText("Download failed");
+                        downloadResultText.setText("Error: " + errorMessage);
+                        showSnackbar("Download error: " + errorMessage, Snackbar.LENGTH_LONG);
+                    });
+                }
             }
         });
     }

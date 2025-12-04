@@ -80,7 +80,7 @@ class User {
              COALESCE(SUM(h.length), 0) as totalDistance,
              COUNT(h.id) as hikeCount
       FROM users u
-      LEFT JOIN hikes h ON u.id = h.userId AND h.privacy = 'public'
+      LEFT JOIN hikes h ON u.id = h.userId AND h.privacy = 'Public'
     `;
     const params = [];
 
@@ -107,7 +107,7 @@ class User {
              COUNT(h.id) as hikeCount,
              COALESCE(SUM(h.length), 0) as totalDistance
       FROM users u
-      LEFT JOIN hikes h ON u.id = h.userId AND h.privacy = 'public'
+      LEFT JOIN hikes h ON u.id = h.userId AND h.privacy = 'Public'
     `;
     const params = [];
 

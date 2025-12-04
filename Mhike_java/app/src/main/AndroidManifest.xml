@@ -59,6 +59,11 @@
             android:parentActivityName=".ui.MainActivity" />
 
         <activity
+            android:name=".ui.details.FeedHikeDetailActivity"
+            android:exported="false"
+            android:parentActivityName=".ui.MainActivity" />
+
+        <activity
             android:name=".ui.location.PickLocationActivity"
             android:exported="false"
             android:parentActivityName=".ui.details.HikeDetailActivity" />

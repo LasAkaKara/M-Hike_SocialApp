@@ -1,6 +1,8 @@
 package com.example.mhike.services;
 
 import android.content.Context;
+import android.os.Handler;
+import android.os.Looper;
 import android.util.Log;
 
 import com.example.mhike.database.AppDatabase;
@@ -37,12 +39,20 @@ public class SyncService {
     private final HikeDao hikeDao;
     private final String authToken;
     
-    // Callback interface for sync operations
+    // Callback interface for offline-to-cloud sync operations
     public interface SyncCallback {
         void onSyncStart(int totalHikes);
         void onSyncProgress(int completed, int total);
         void onSyncSuccess(SyncResult result);
         void onSyncError(String errorMessage);
+    }
+    
+    // Callback interface for cloud-to-offline sync operations
+    public interface CloudSyncCallback {
+        void onCloudSyncStart();
+        void onCloudSyncProgress(int completed, int total);
+        void onCloudSyncSuccess(CloudSyncResult result);
+        void onCloudSyncError(String errorMessage);
     }
     
     /**
@@ -67,6 +77,28 @@ public class SyncService {
         }
     }
     
+    /**
+     * Result object for cloud-to-offline sync
+     */
+    public static class CloudSyncResult {
+        public int totalDownloaded;
+        public int successfulInserts;
+        public int failedInserts;
+        public int skippedDuplicates;
+        public long syncDuration;
+        
+        @Override
+        public String toString() {
+            return "CloudSyncResult{" +
+                    "totalDownloaded=" + totalDownloaded +
+                    ", successfulInserts=" + successfulInserts +
+                    ", failedInserts=" + failedInserts +
+                    ", skippedDuplicates=" + skippedDuplicates +
+                    ", syncDuration=" + syncDuration + "ms" +
+                    '}';
+        }
+    }
+    
     public SyncService(Context context, OkHttpClient httpClient, String authToken) {
         this.context = context.getApplicationContext();
         this.httpClient = httpClient;
@@ -79,6 +111,7 @@ public class SyncService {
     /**
      * Sync all offline hikes to the cloud
      * Hikes with syncStatus = 0 will be uploaded, and syncStatus will be updated to 1
+     * Also syncs deleted hikes (isDeleted = 1) by deleting them from cloud
      */
     public void syncAllOfflineHikes(SyncCallback callback) {
         new Thread(() -> {
@@ -89,7 +122,13 @@ public class SyncService {
                 // Get all offline hikes (syncStatus = 0) - using sync method for background thread
                 List<Hike> offlineHikes = hikeDao.getHikesBySyncStatusSync(0);
                 
-                if (offlineHikes == null || offlineHikes.isEmpty()) {
+                // Also get deleted hikes that need to be synced
+                List<Hike> deletedHikes = hikeDao.getDeletedHikesSync();
+                
+                int totalToSync = (offlineHikes != null ? offlineHikes.size() : 0) + 
+                                  (deletedHikes != null ? deletedHikes.size() : 0);
+                
+                if (totalToSync == 0) {
                     result.totalHikes = 0;
                     result.successfulUploads = 0;
                     result.failedUploads = 0;
@@ -102,27 +141,53 @@ public class SyncService {
                     return;
                 }
                 
-                result.totalHikes = offlineHikes.size();
+                result.totalHikes = totalToSync;
                 if (callback != null) {
                     callback.onSyncStart(result.totalHikes);
                 }
                 
-                // Sync hikes sequentially to maintain order and proper error handling
+                // Sync offline hikes (uploads)
                 int completedCount = 0;
-                for (Hike hike : offlineHikes) {
-                    if (syncHikeToCloud(hike)) {
-                        // Update sync status to 1 (synced)
-                        hike.syncStatus = 1;
-                        hike.updatedAt = System.currentTimeMillis();
-                        hikeDao.update(hike);
-                        result.successfulUploads++;
-                    } else {
-                        result.failedUploads++;
+                if (offlineHikes != null) {
+                    for (Hike hike : offlineHikes) {
+                        if (syncHikeToCloud(hike)) {
+                            // Update sync status to 1 (synced)
+                            hike.syncStatus = 1;
+                            hike.updatedAt = System.currentTimeMillis();
+                            hikeDao.update(hike);
+                            result.successfulUploads++;
+                        } else {
+                            result.failedUploads++;
+                        }
+                        
+                        completedCount++;
+                        if (callback != null) {
+                            callback.onSyncProgress(completedCount, result.totalHikes);
+                        }
                     }
-                    
-                    completedCount++;
-                    if (callback != null) {
-                        callback.onSyncProgress(completedCount, result.totalHikes);
+                }
+                
+                // Sync deleted hikes (delete from cloud)
+                if (deletedHikes != null) {
+                    for (Hike hike : deletedHikes) {
+                        if (hike.cloudId != null && !hike.cloudId.isEmpty()) {
+                            if (deleteHikeFromCloud(hike.cloudId)) {
+                                // Permanently remove from local database after successful cloud deletion
+                                hikeDao.permanentlyDelete(hike.id);
+                                result.successfulUploads++;
+                            } else {
+                                result.failedUploads++;
+                            }
+                        } else {
+                            // No cloudId, just remove locally
+                            hikeDao.permanentlyDelete(hike.id);
+                            result.successfulUploads++;
+                        }
+                        
+                        completedCount++;
+                        if (callback != null) {
+                            callback.onSyncProgress(completedCount, result.totalHikes);
+                        }
                     }
                 }
                 
@@ -381,4 +446,215 @@ public class SyncService {
         void onStatusReady(SyncStatus status);
         void onError(String errorMessage);
     }
+    
+    /**
+     * Sync hikes from cloud to offline (download)
+     * Fetches hikes from cloud backend and stores them locally
+     * Avoids duplicates by checking cloudId
+     */
+    public void syncCloudToOffline(CloudSyncCallback callback) {
+        new Thread(() -> {
+            try {
+                long startTime = System.currentTimeMillis();
+                CloudSyncResult result = new CloudSyncResult();
+                
+                Log.d(TAG, "=== Cloud-to-Offline Sync Started ===");
+                Log.d(TAG, "Calling fetchHikesFromCloud()...");
+                
+                // Fetch all hikes from cloud (both public and private)
+                List<Hike> cloudHikes = fetchHikesFromCloud();
+                
+                Log.d(TAG, "fetchHikesFromCloud() returned: " + (cloudHikes == null ? "null" : cloudHikes.size() + " hikes"));
+                
+                if (cloudHikes == null || cloudHikes.isEmpty()) {
+                    Log.w(TAG, "No hikes received from cloud or fetch failed");
+                    result.totalDownloaded = 0;
+                    result.successfulInserts = 0;
+                    result.failedInserts = 0;
+                    result.skippedDuplicates = 0;
+                    result.syncDuration = System.currentTimeMillis() - startTime;
+                    
+                    if (callback != null) {
+                        Handler handler = new Handler(Looper.getMainLooper());
+                        handler.post(() -> callback.onCloudSyncSuccess(result));
+                    }
+                    return;
+                }
+                
+                result.totalDownloaded = cloudHikes.size();
+                Log.d(TAG, "Starting processing of " + result.totalDownloaded + " cloud hikes");
+                
+                if (callback != null) {
+                    Handler handler = new Handler(Looper.getMainLooper());
+                    handler.post(() -> callback.onCloudSyncStart());
+                }
+                
+                // Process each hike from cloud
+                int completedCount = 0;
+                for (Hike cloudHike : cloudHikes) {
+                    Log.d(TAG, "Processing hike: " + cloudHike.name + " (cloudId: " + cloudHike.cloudId + ")");
+                    
+                    // Check if this hike already exists locally (by cloudId)
+                    if (cloudHike.cloudId != null) {
+                        Hike existingHike = hikeDao.getHikeByCloudIdSync(cloudHike.cloudId);
+                        if (existingHike != null) {
+                            Log.d(TAG, "Hike already exists locally, skipping duplicate");
+                            result.skippedDuplicates++;
+                            completedCount++;
+                            if (callback != null) {
+                                Handler handler = new Handler(Looper.getMainLooper());
+                                int finalCompletedCount = completedCount;
+                                handler.post(() -> callback.onCloudSyncProgress(finalCompletedCount, result.totalDownloaded));
+                            }
+                            continue;
+                        }
+                    }
+                    
+                    // Insert new hike from cloud
+                    try {
+                        // Ensure local ID is 0 to let Room auto-generate
+                        cloudHike.id = 0;
+                        cloudHike.syncStatus = 1; // Mark as synced
+                        hikeDao.insert(cloudHike);
+                        Log.d(TAG, "Successfully inserted hike: " + cloudHike.name);
+                        result.successfulInserts++;
+                    } catch (Exception e) {
+                        Log.e(TAG, "Failed to insert hike from cloud: " + e.getMessage(), e);
+                        result.failedInserts++;
+                    }
+                    
+                    completedCount++;
+                    if (callback != null) {
+                        Handler handler = new Handler(Looper.getMainLooper());
+                        int finalCompletedCount = completedCount;
+                        handler.post(() -> callback.onCloudSyncProgress(finalCompletedCount, result.totalDownloaded));
+                    }
+                }
+                
+                result.syncDuration = System.currentTimeMillis() - startTime;
+                
+                if (callback != null) {
+                    Handler handler = new Handler(Looper.getMainLooper());
+                    handler.post(() -> callback.onCloudSyncSuccess(result));
+                }
+            } catch (Exception e) {
+                Log.e(TAG, "Cloud-to-offline sync error: " + e.getMessage(), e);
+                if (callback != null) {
+                    Handler handler = new Handler(Looper.getMainLooper());
+                    handler.post(() -> callback.onCloudSyncError("Sync failed: " + e.getMessage()));
+                }
+            }
+        }).start();
+    }
+    
+    /**
+     * Fetch all hikes from cloud backend (authenticated user's hikes)
+     * Returns list of hikes or null on error
+     */
+    private List<Hike> fetchHikesFromCloud() {
+        try {
+            String url = BASE_URL + "/hikes/my";
+            Log.d(TAG, "=== Cloud Download Debug ===");
+            Log.d(TAG, "Fetching hikes from: " + url);
+            Log.d(TAG, "Auth token: " + (authToken != null ? "Present" : "Missing"));
+            
+            Request request = new Request.Builder()
+                .url(url)
+                .get()
+                .addHeader("Authorization", "Bearer " + authToken)
+                .build();
+            
+            Log.d(TAG, "Request built, executing...");
+            
+            try (Response response = httpClient.newCall(request).execute()) {
+                Log.d(TAG, "Response received. Status code: " + response.code());
+                Log.d(TAG, "Response successful: " + response.isSuccessful());
+                
+                if (response.isSuccessful()) {
+                    try {
+                        assert response.body() != null;
+                        String responseBody = response.body().string();
+                        
+                        Log.d(TAG, "Response body length: " + responseBody.length());
+                        Log.d(TAG, "Response body (first 500 chars): " + 
+                              (responseBody.length() > 500 ? responseBody.substring(0, 500) : responseBody));
+                        
+                        // Parse JSON array of hikes
+                        JsonArray hikesArray = new com.google.gson.JsonParser()
+                            .parse(responseBody)
+                            .getAsJsonArray();
+                        
+                        Log.d(TAG, "Parsed JSON array with " + hikesArray.size() + " elements");
+                        
+                        List<Hike> hikes = new java.util.ArrayList<>();
+                        com.google.gson.Gson gson = new com.google.gson.Gson();
+                        
+                        for (int i = 0; i < hikesArray.size(); i++) {
+                            try {
+                                JsonObject element = hikesArray.get(i).getAsJsonObject();
+                                Hike hike = gson.fromJson(element, Hike.class);
+                                
+                                // Map cloud's 'id' field to our 'cloudId' for tracking
+                                if (element.has("id")) {
+                                    hike.cloudId = element.get("id").getAsString();
+                                    // Don't use cloud's id as local primary key - let Room generate it
+                                    hike.id = 0;
+                                    Log.d(TAG, "Parsed hike " + (i + 1) + ": " + hike.name + " (cloudId: " + hike.cloudId + ")");
+                                }
+                                hikes.add(hike);
+                            } catch (Exception e) {
+                                Log.w(TAG, "Failed to parse hike " + (i + 1) + ": " + e.getMessage(), e);
+                            }
+                        }
+                        
+                        Log.d(TAG, "Successfully fetched " + hikes.size() + " hikes from cloud");
+                        return hikes;
+                    } catch (Exception e) {
+                        Log.e(TAG, "Failed to parse response: " + e.getMessage(), e);
+                        return null;
+                    }
+                } else {
+                    assert response.body() != null;
+                    String errorBody = response.body().string();
+                    Log.e(TAG, "Failed to fetch hikes from cloud: " + response.code() + " - " + errorBody);
+                    return null;
+                }
+            }
+        } catch (IOException e) {
+            Log.e(TAG, "Network error while fetching hikes from cloud: " + e.getMessage(), e);
+            return null;
+        }
+    }
+    
+    /**
+     * Delete a hike from cloud backend
+     * Returns true if successful, false otherwise
+     */
+    private boolean deleteHikeFromCloud(String cloudId) {
+        try {
+            String url = BASE_URL + "/hikes/" + cloudId;
+            
+            Request request = new Request.Builder()
+                .url(url)
+                .delete()
+                .addHeader("Authorization", "Bearer " + authToken)
+                .build();
+            
+            try (Response response = httpClient.newCall(request).execute()) {
+                if (response.isSuccessful()) {
+                    Log.d(TAG, "Successfully deleted hike from cloud: " + cloudId);
+                    return true;
+                } else {
+                    assert response.body() != null;
+                    String errorBody = response.body().string();
+                    Log.e(TAG, "Failed to delete hike from cloud " + cloudId + ": " + response.code() + " - " + errorBody);
+                    return false;
+                }
+            }
+        } catch (IOException e) {
+            Log.e(TAG, "Network error while deleting hike from cloud: " + e.getMessage(), e);
+            return false;
+        }
+    }
 }
+

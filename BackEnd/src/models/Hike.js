@@ -78,7 +78,7 @@ class Hike {
       `SELECT h.*, u.username, u.avatarUrl
        FROM hikes h
        LEFT JOIN users u ON h.userId = u.id
-       WHERE h.privacy = 'public'
+       WHERE h.privacy = 'Public'
        ORDER BY h.createdAt DESC
        LIMIT $1 OFFSET $2`,
       [limit, offset]
@@ -93,7 +93,7 @@ class Hike {
               ST_Distance(h.geom, ST_GeomFromText($1, 4326)) / 1000 as distanceKm
        FROM hikes h
        LEFT JOIN users u ON h.userId = u.id
-       WHERE h.privacy = 'public'
+       WHERE h.privacy = 'Public'
          AND ST_DWithin(h.geom, ST_GeomFromText($1, 4326), $2 * 1000)
        ORDER BY distanceKm ASC
        LIMIT $3`,
@@ -108,7 +108,7 @@ class Hike {
       `SELECT h.*, u.username, u.avatarUrl
        FROM hikes h
        LEFT JOIN users u ON h.userId = u.id
-       WHERE h.name ILIKE $1 AND h.privacy = 'public'
+       WHERE h.name ILIKE $1 AND h.privacy = 'Public'
        ORDER BY h.createdAt DESC
        LIMIT $2 OFFSET $3`,
       [`%${name}%`, limit, offset]
@@ -134,7 +134,7 @@ class Hike {
       SELECT h.*, u.username, u.avatarUrl
       FROM hikes h
       LEFT JOIN users u ON h.userId = u.id
-      WHERE h.privacy = 'public'
+      WHERE h.privacy = 'Public'
     `;
     const params = [];
     let paramCount = 0;
@@ -254,7 +254,7 @@ class Hike {
        LEFT JOIN users u ON h.userId = u.id
        WHERE h.userId IN (
          SELECT followedId FROM follows WHERE followerId = $1
-       ) AND h.privacy = 'public'
+       ) AND h.privacy = 'Public'
        ORDER BY h.createdAt DESC
        LIMIT $2 OFFSET $3`,
       [userId, limit, offset]

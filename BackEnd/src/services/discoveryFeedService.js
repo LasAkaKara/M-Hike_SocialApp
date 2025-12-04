@@ -35,7 +35,7 @@ class DiscoveryFeedService {
         FROM observations o
         LEFT JOIN users u ON o.userId = u.id
         LEFT JOIN hikes h ON o.hikeId = h.id
-        WHERE h.privacy = 'public'
+        WHERE h.privacy = 'Public'
           AND ST_DWithin(o.geom, ST_GeomFromText($1, 4326), $2 * 1000)
         ORDER BY o.confirmations DESC, distanceKm ASC, o.createdAt DESC
         LIMIT $3 OFFSET $4`,
@@ -68,7 +68,7 @@ class DiscoveryFeedService {
         FROM observations o
         LEFT JOIN users u ON o.userId = u.id
         LEFT JOIN hikes h ON o.hikeId = h.id
-        WHERE h.privacy = 'public'
+        WHERE h.privacy = 'Public'
           AND ST_DWithin(o.geom, ST_GeomFromText($1, 4326), $2 * 1000)
         ORDER BY o.confirmations DESC, o.disputes ASC, distanceKm ASC
         LIMIT $3`,
@@ -102,7 +102,7 @@ class DiscoveryFeedService {
         FROM hikes h
         LEFT JOIN users u ON h.userId = u.id
         LEFT JOIN observations o ON h.id = o.hikeId
-        WHERE h.privacy = 'public'
+        WHERE h.privacy = 'Public'
           AND ST_DWithin(h.geom, ST_GeomFromText($1, 4326), $2 * 1000)
         GROUP BY h.id, u.id, u.username, u.avatarUrl
         ORDER BY totalConfirmations DESC, observationCount DESC, distanceKm ASC
@@ -174,7 +174,7 @@ class DiscoveryFeedService {
          FROM hikes h
          WHERE h.userId IN (
            SELECT followedId FROM follows WHERE followerId = $1
-         ) AND h.privacy = 'public'
+         ) AND h.privacy = 'Public'
          AND h.createdAt > NOW() - INTERVAL '7 days'
          AND h.id NOT IN (
            SELECT itemId FROM feeds WHERE userId = $1 AND itemType = 'hike'
@@ -191,7 +191,7 @@ class DiscoveryFeedService {
          LEFT JOIN hikes h ON o.hikeId = h.id
          WHERE o.userId IN (
            SELECT followedId FROM follows WHERE followerId = $1
-         ) AND h.privacy = 'public'
+         ) AND h.privacy = 'Public'
          AND o.createdAt > NOW() - INTERVAL '7 days'
          AND o.id NOT IN (
            SELECT itemId FROM feeds WHERE userId = $1 AND itemType = 'observation'
@@ -227,7 +227,7 @@ class DiscoveryFeedService {
         FROM hikes h
         LEFT JOIN users u ON h.userId = u.id
         LEFT JOIN observations o ON h.id = o.hikeId
-        WHERE h.privacy = 'public'
+        WHERE h.privacy = 'Public'
           AND h.difficulty IN (
             SELECT DISTINCT difficulty FROM hikes 
             WHERE userId IN (
@@ -272,7 +272,7 @@ class DiscoveryFeedService {
         FROM hikes h
         LEFT JOIN users u ON h.userId = u.id
         LEFT JOIN observations o ON h.id = o.hikeId
-        WHERE h.privacy = 'public'
+        WHERE h.privacy = 'Public'
         GROUP BY h.id, u.id, u.username, u.avatarUrl
         ORDER BY totalConfirmations DESC, observationCount DESC, h.createdAt DESC
         LIMIT $1 OFFSET $2`,
@@ -306,7 +306,7 @@ class DiscoveryFeedService {
         LEFT JOIN users u ON o.userId = u.id
         LEFT JOIN hikes h ON o.hikeId = h.id
         LEFT JOIN observation_comments c ON o.id = c.observationId
-        WHERE h.privacy = 'public'
+        WHERE h.privacy = 'Public'
         GROUP BY o.id, u.id, u.username, u.avatarUrl, h.id, h.name
         ORDER BY o.confirmations DESC, o.disputes ASC, commentCount DESC, o.createdAt DESC
         LIMIT $1 OFFSET $2`,

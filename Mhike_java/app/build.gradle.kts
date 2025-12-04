@@ -39,6 +39,8 @@ dependencies {
     implementation(libs.constraint.layout)
     implementation(libs.fragment)
     implementation(libs.recyclerview)
+    implementation(libs.swiperefreshlayout)
+    implementation(libs.viewpager2)
     
     // Room Database
     implementation(libs.room.runtime)

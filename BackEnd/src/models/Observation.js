@@ -83,7 +83,7 @@ class Observation {
        FROM observations o
        LEFT JOIN users u ON o.userId = u.id
        LEFT JOIN hikes h ON o.hikeId = h.id
-       WHERE h.privacy = 'public'
+       WHERE h.privacy = 'Public'
        ORDER BY o.createdAt DESC
        LIMIT $1 OFFSET $2`,
       [limit, offset]
@@ -99,7 +99,7 @@ class Observation {
        FROM observations o
        LEFT JOIN users u ON o.userId = u.id
        LEFT JOIN hikes h ON o.hikeId = h.id
-       WHERE h.privacy = 'public'
+       WHERE h.privacy = 'Public'
          AND ST_DWithin(o.geom, ST_GeomFromText($1, 4326), $2 * 1000)
        ORDER BY o.createdAt DESC, distanceKm ASC
        LIMIT $3`,
@@ -115,7 +115,7 @@ class Observation {
        FROM observations o
        LEFT JOIN users u ON o.userId = u.id
        LEFT JOIN hikes h ON o.hikeId = h.id
-       WHERE o.title ILIKE $1 AND h.privacy = 'public'
+       WHERE o.title ILIKE $1 AND h.privacy = 'Public'
        ORDER BY o.createdAt DESC
        LIMIT $2 OFFSET $3`,
       [`%${title}%`, limit, offset]
@@ -194,7 +194,7 @@ class Observation {
        LEFT JOIN hikes h ON o.hikeId = h.id
        WHERE o.userId IN (
          SELECT followedId FROM follows WHERE followerId = $1
-       ) AND h.privacy = 'public'
+       ) AND h.privacy = 'Public'
        ORDER BY o.createdAt DESC
        LIMIT $2 OFFSET $3`,
       [userId, limit, offset]
@@ -209,7 +209,7 @@ class Observation {
        FROM observations o
        LEFT JOIN users u ON o.userId = u.id
        LEFT JOIN hikes h ON o.hikeId = h.id
-       WHERE h.privacy = 'public'
+       WHERE h.privacy = 'Public'
        ORDER BY o.confirmations DESC, o.createdAt DESC
        LIMIT $1 OFFSET $2`,
       [limit, offset]

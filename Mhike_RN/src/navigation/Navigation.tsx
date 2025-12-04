@@ -1,13 +1,13 @@
-import React from 'react';
-import { NavigationContainer } from '@react-navigation/native';
-import { createNativeStackNavigator } from '@react-navigation/stack';
-import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
-import MaterialCommunityIcon from 'react-native-paper/lib/typescript/components/MaterialCommunityIcon';
+import React from "react";
+import { NavigationContainer } from "@react-navigation/native";
+import { createNativeStackNavigator } from "@react-navigation/stack";
+import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
+import { MaterialCommunityIcons } from "react-native-vector-icons";
 
-import HomeScreen from '../screens/HomeScreen';
-import HikeDetailScreen from '../screens/HikeDetailScreen';
-import AddHikeScreen from '../screens/AddHikeScreen';
-import SettingsScreen from '../screens/SettingsScreen';
+import HomeScreen from "../screens/HomeScreen";
+import HikeDetailScreen from "../screens/HikeDetailScreen";
+import AddHikeScreen from "../screens/AddHikeScreen";
+import SettingsScreen from "../screens/SettingsScreen";
 
 export type RootStackParamList = {
   Home: undefined;
@@ -29,18 +29,18 @@ const HomeStackNavigator = () => {
       <Stack.Screen
         name="Home"
         component={HomeScreen}
-        options={{ title: 'My Hikes' }}
+        options={{ title: "My Hikes" }}
       />
       <Stack.Screen
         name="HikeDetail"
         component={HikeDetailScreen}
-        options={{ title: 'Hike Details' }}
+        options={{ title: "Hike Details" }}
       />
       <Stack.Screen
         name="AddHike"
         component={AddHikeScreen}
         options={({ route }) => ({
-          title: route.params?.hikeId ? 'Edit Hike' : 'Add Hike',
+          title: route.params?.hikeId ? "Edit Hike" : "Add Hike",
         })}
       />
     </Stack.Navigator>
@@ -53,32 +53,36 @@ const Navigation: React.FC = () => {
       <Tab.Navigator
         screenOptions={({ route }) => ({
           tabBarIcon: ({ color, size }) => {
-            let iconName = '';
+            let iconName = "";
 
-            if (route.name === 'HomeTab') {
-              iconName = 'home';
-            } else if (route.name === 'Settings') {
-              iconName = 'cog';
+            if (route.name === "HomeTab") {
+              iconName = "home";
+            } else if (route.name === "Settings") {
+              iconName = "cog";
             }
 
             return (
-              <MaterialCommunityIcon name={iconName} size={size} color={color} />
+              <MaterialCommunityIcons
+                name={iconName}
+                size={size}
+                color={color}
+              />
             );
           },
-          tabBarActiveTintColor: '#2E7D32',
-          tabBarInactiveTintColor: '#999999',
+          tabBarActiveTintColor: "#2E7D32",
+          tabBarInactiveTintColor: "#999999",
           headerShown: false,
         })}
       >
         <Tab.Screen
           name="HomeTab"
           component={HomeStackNavigator}
-          options={{ title: 'Hikes' }}
+          options={{ title: "Hikes" }}
         />
         <Tab.Screen
           name="Settings"
           component={SettingsScreen}
-          options={{ title: 'Settings' }}
+          options={{ title: "Settings" }}
         />
       </Tab.Navigator>
     </NavigationContainer>

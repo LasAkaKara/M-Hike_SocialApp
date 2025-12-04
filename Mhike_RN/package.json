@@ -2,14 +2,17 @@
   "name": "mhike_rn",
   "version": "1.0.0",
   "description": "",
-  "main": "index.js",
+  "main": "src/App.tsx",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "@react-native-community/datetimepicker": "^8.2.0",
+    "@react-navigation/bottom-tabs": "^7.1.2",
     "@react-navigation/native": "^7.1.24",
+    "@react-navigation/stack": "^7.1.2",
     "@reduxjs/toolkit": "^2.11.0",
     "axios": "^1.13.2",
     "expo": "^54.0.25",
