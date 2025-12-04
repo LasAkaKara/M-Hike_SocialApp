@@ -9,7 +9,7 @@ A comprehensive development blueprint for a hybrid hiking application integratin
 | Feature          | Primary App (Java)         | Secondary App (RN)                |
 | ---------------- | -------------------------- |-----------------------------------|
 | **Language**     | Java (Native Android)      | Javascript                        |
-| **Scope**        | Full Scope (A ->G)         | Core CRUD Only (A&B)             | 
+| **Scope**        | Full Scope (A ->G)         | Core CRUD Only (A&B)              | 
 | **Architecture** | MVVM (ViewModel + LiveData)| Component-based (Hooks)           |
 | **Connectivity** | Offline-First + Cloud Sync | Offline-Only (Local Persistence)  |
 | **Grade Target** | Express.js + PostgreSQL    | N/A                               |

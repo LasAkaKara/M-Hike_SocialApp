@@ -1,10 +1,57 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <!-- Primary Colors (Green/Hiking theme) -->
+    <color name="primary">#2E7D32</color>
+    <color name="primary_light">#66BB6A</color>
+    <color name="primary_dark">#1B5E20</color>
+    
+    <!-- Secondary Colors (Brown/Earth tones) -->
+    <color name="secondary">#8D6E63</color>
+    <color name="secondary_light">#A1887F</color>
+    <color name="secondary_dark">#6D4C41</color>
+    
+    <!-- Tertiary Colors (Orange/Accent) -->
+    <color name="tertiary">#FF6F00</color>
+    <color name="tertiary_light">#FFB74D</color>
+    <color name="tertiary_dark">#E65100</color>
+    
+    <!-- Neutrals -->
+    <color name="white">#FFFFFF</color>
+    <color name="black">#000000</color>
+    <color name="gray_100">#F5F5F5</color>
+    <color name="gray_200">#EEEEEE</color>
+    <color name="gray_300">#E0E0E0</color>
+    <color name="gray_400">#BDBDBD</color>
+    <color name="gray_500">#9E9E9E</color>
+    <color name="gray_600">#757575</color>
+    <color name="gray_700">#616161</color>
+    <color name="gray_800">#424242</color>
+    <color name="gray_900">#212121</color>
+    
+    <!-- Semantic Colors -->
+    <color name="error">#D32F2F</color>
+    <color name="error_light">#EF5350</color>
+    <color name="warning">#F57C00</color>
+    <color name="warning_light">#FFA726</color>
+    <color name="success">#388E3C</color>
+    <color name="success_light">#4CAF50</color>
+    <color name="info">#1976D2</color>
+    <color name="info_light">#42A5F5</color>
+    
+    <!-- Status Colors -->
+    <color name="synced">#4CAF50</color>
+    <color name="not_synced">#FF9800</color>
+    <color name="syncing">#2196F3</color>
+    
+    <!-- Difficulty Colors -->
+    <color name="difficulty_easy">#4CAF50</color>
+    <color name="difficulty_medium">#FF9800</color>
+    <color name="difficulty_hard">#D32F2F</color>
+    
+    <!-- Legacy colors (keeping for compatibility) -->
     <color name="purple_200">#FFBB86FC</color>
     <color name="purple_500">#FF6200EE</color>
     <color name="purple_700">#FF3700B3</color>
     <color name="teal_200">#FF03DAC5</color>
     <color name="teal_700">#FF018786</color>
-    <color name="black">#FF000000</color>
-    <color name="white">#FFFFFFFF</color>
 </resources>
