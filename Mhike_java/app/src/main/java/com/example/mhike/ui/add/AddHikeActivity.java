@@ -19,6 +19,7 @@ import com.example.mhike.database.entities.Hike;
 import com.example.mhike.services.LocationManager;
 import com.example.mhike.ui.location.PickLocationActivity;
 import com.example.mhike.ui.viewmodels.HikeViewModel;
+import com.example.mhike.utils.GeocodingHelper;
 import com.google.android.material.button.MaterialButton;
 import com.google.android.material.snackbar.Snackbar;
 import com.google.android.material.switchmaterial.SwitchMaterial;
@@ -36,6 +37,7 @@ public class AddHikeActivity extends AppCompatActivity {
     
     private HikeViewModel viewModel;
     private Hike editingHike;
+    private GeocodingHelper geocodingHelper;
     
     // UI Components
     private TextInputEditText nameEditText;
@@ -81,6 +83,7 @@ public class AddHikeActivity extends AppCompatActivity {
         
         viewModel = new ViewModelProvider(this).get(HikeViewModel.class);
         locationManager = new LocationManager(this);
+        geocodingHelper = new GeocodingHelper(this);
         
         // Initialize map picker launcher
         initializeMapPickerLauncher();
@@ -109,6 +112,13 @@ public class AddHikeActivity extends AppCompatActivity {
                 if (result.getResultCode() == RESULT_OK && result.getData() != null) {
                     selectedLatitude = result.getData().getDoubleExtra("latitude", 0);
                     selectedLongitude = result.getData().getDoubleExtra("longitude", 0);
+                    
+                    // Auto-fill location name if geocoding was successful
+                    String placeName = result.getData().getStringExtra("placeName");
+                    if (placeName != null && !placeName.isEmpty() && locationEditText.getText().toString().isEmpty()) {
+                        locationEditText.setText(placeName);
+                    }
+                    
                     updateLocationDisplay();
                 }
             }
@@ -244,6 +254,7 @@ public class AddHikeActivity extends AppCompatActivity {
     
     /**
      * Capture location from device GPS
+     * Also performs reverse geocoding to auto-fill location name
      */
     private void captureGpsLocation() {
         locationManager.getLastLocation(new LocationManager.LocationCallback() {
@@ -253,6 +264,22 @@ public class AddHikeActivity extends AppCompatActivity {
                 selectedLongitude = longitude;
                 updateLocationDisplay();
                 Toast.makeText(AddHikeActivity.this, "Location captured from GPS", Toast.LENGTH_SHORT).show();
+                
+                // Auto-fill location name via reverse geocoding if not already filled
+                if (locationEditText.getText().toString().isEmpty()) {
+                    geocodingHelper.getPlaceName(latitude, longitude, new GeocodingHelper.GeocodeCallback() {
+                        @Override
+                        public void onAddressFound(String placeName, String fullAddress) {
+                            locationEditText.setText(placeName);
+                            Toast.makeText(AddHikeActivity.this, "Location name: " + placeName, Toast.LENGTH_SHORT).show();
+                        }
+                        
+                        @Override
+                        public void onGeocodeError(String errorMessage) {
+                            // Silent fail - user can type location manually
+                        }
+                    });
+                }
             }
             
             @Override

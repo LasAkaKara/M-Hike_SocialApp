@@ -123,4 +123,28 @@ public interface ObservationDao {
      */
     @Query("DELETE FROM observations")
     void deleteAllObservations();
+    
+    /**
+     * Get observations by sync status (blocking call for background threads).
+     */
+    @Query("SELECT * FROM observations WHERE syncStatus = :syncStatus ORDER BY createdAt DESC")
+    List<Observation> getObservationsBySyncStatusSync(int syncStatus);
+    
+    /**
+     * Get observation by cloud ID.
+     */
+    @Query("SELECT * FROM observations WHERE cloudId = :cloudId LIMIT 1")
+    Observation getObservationByCloudIdSync(String cloudId);
+    
+    /**
+     * Get all observations (blocking call for background threads).
+     */
+    @Query("SELECT * FROM observations ORDER BY createdAt DESC")
+    List<Observation> getAllObservationsSync();
+    
+    /**
+     * Permanently delete an observation from the database (for deletion sync).
+     */
+    @Query("DELETE FROM observations WHERE id = :observationId")
+    void permanentlyDelete(long observationId);
 }

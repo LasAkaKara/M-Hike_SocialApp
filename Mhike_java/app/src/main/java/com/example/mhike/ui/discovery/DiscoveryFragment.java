@@ -62,6 +62,9 @@ public class DiscoveryFragment extends Fragment {
                 case 1:
                     tab.setText("Feed");
                     break;
+                case 2:
+                    tab.setText("Nearby Hikes");
+                    break;
             }
         });
         tabLayoutMediator.attach();
@@ -82,7 +85,7 @@ public class DiscoveryFragment extends Fragment {
      */
     private static class DiscoveryPagerAdapter extends FragmentStateAdapter {
         
-        private static final int NUM_TABS = 2;
+        private static final int NUM_TABS = 3;
         
         public DiscoveryPagerAdapter(@NonNull Fragment fragment) {
             super(fragment);
@@ -96,6 +99,8 @@ public class DiscoveryFragment extends Fragment {
                     return SearchUsersFragment.newInstance();
                 case 1:
                     return FeedFragment.newInstance();
+                case 2:
+                    return NearbyHikesFragment.newInstance();
                 default:
                     return SearchUsersFragment.newInstance();
             }

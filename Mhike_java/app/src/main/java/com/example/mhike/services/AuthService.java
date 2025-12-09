@@ -31,7 +31,6 @@ public class AuthService {
     private static final String USER_ID_KEY = "user_id";
     private static final String USERNAME_KEY = "username";
     
-    // TODO: Replace with actual ngrok URL when available
     private static final String BASE_URL = "https://kandis-nonappealable-flatly.ngrok-free.dev/api";
     
     private final Context context;

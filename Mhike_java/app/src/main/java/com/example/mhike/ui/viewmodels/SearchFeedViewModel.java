@@ -38,6 +38,11 @@ public class SearchFeedViewModel extends AndroidViewModel {
     private final MutableLiveData<Boolean> isFeedLoading = new MutableLiveData<>(false);
     private final MutableLiveData<String> feedErrorMessage = new MutableLiveData<>();
     
+    // Nearby Hikes LiveData
+    private final MutableLiveData<List<Hike>> nearbyHikes = new MutableLiveData<>();
+    private final MutableLiveData<Boolean> nearbyHikesLoading = new MutableLiveData<>(false);
+    private final MutableLiveData<String> nearbyHikesErrorMessage = new MutableLiveData<>();
+    
     // Follow status LiveData
     private final MutableLiveData<Boolean> isFollowing = new MutableLiveData<>(false);
     private final MutableLiveData<String> followMessage = new MutableLiveData<>();
@@ -213,5 +218,41 @@ public class SearchFeedViewModel extends AndroidViewModel {
     
     public long getCurrentUserId() {
         return currentUserId;
+    }
+    
+    // ======================== Nearby Hikes Methods ========================
+    
+    /**
+     * Load nearby public hikes based on location
+     */
+    public void loadNearbyHikes(double latitude, double longitude, double radiusKm) {
+        nearbyHikesLoading.postValue(true);
+        feedService.getNearbyHikes(latitude, longitude, radiusKm, 50, 0, new FeedService.FeedCallback() {
+            @Override
+            public void onSuccess(List<Hike> hikes) {
+                nearbyHikes.postValue(hikes);
+                nearbyHikesLoading.postValue(false);
+                nearbyHikesErrorMessage.postValue(null);
+            }
+            
+            @Override
+            public void onError(String errorMessage) {
+                nearbyHikes.postValue(null);
+                nearbyHikesLoading.postValue(false);
+                nearbyHikesErrorMessage.postValue(errorMessage);
+            }
+        });
+    }
+    
+    public LiveData<List<Hike>> getNearbyHikes() {
+        return nearbyHikes;
+    }
+    
+    public LiveData<Boolean> getNearbyHikesLoading() {
+        return nearbyHikesLoading;
+    }
+    
+    public LiveData<String> getNearbyHikesErrorMessage() {
+        return nearbyHikesErrorMessage;
     }
 }

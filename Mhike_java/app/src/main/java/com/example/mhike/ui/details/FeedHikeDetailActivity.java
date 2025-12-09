@@ -220,7 +220,7 @@ public class FeedHikeDetailActivity extends AppCompatActivity implements Observa
         String location = getIntent().getStringExtra("hike_location");
         String date = getIntent().getStringExtra("hike_date");
         String time = getIntent().getStringExtra("hike_time");
-        double length = getIntent().getDoubleExtra("hike_length", 0);
+        float length = getIntent().getFloatExtra("hike_length", 0);
         String difficulty = getIntent().getStringExtra("hike_difficulty");
         boolean parking = getIntent().getBooleanExtra("hike_parking", false);
         String privacy = getIntent().getStringExtra("hike_privacy");

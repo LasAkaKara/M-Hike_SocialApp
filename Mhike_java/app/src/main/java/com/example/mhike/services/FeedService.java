@@ -348,4 +348,91 @@ public class FeedService {
             }
         });
     }
+    
+    /**
+     * Get public hikes nearby based on location and radius
+     * @param latitude User's latitude
+     * @param longitude User's longitude
+     * @param radiusKm Search radius in kilometers
+     * @param limit Maximum number of hikes to return
+     * @param offset Pagination offset
+     * @param callback FeedCallback for results
+     */
+    public void getNearbyHikes(double latitude, double longitude, double radiusKm, int limit, int offset, FeedCallback callback) {
+        String url = BASE_URL + "/hikes/nearby?lat=" + latitude + "&lng=" + longitude + 
+                     "&radius=" + radiusKm + "&limit=" + limit + "&offset=" + offset;
+        
+        Log.d(TAG, "=== Get Nearby Hikes ===");
+        Log.d(TAG, "URL: " + url);
+        Log.d(TAG, "Location: " + latitude + ", " + longitude + " | Radius: " + radiusKm + "km");
+        
+        Request request = new Request.Builder()
+            .url(url)
+            .get()
+            .build();
+        
+        httpClient.newCall(request).enqueue(new Callback() {
+            @Override
+            public void onFailure(Call call, IOException e) {
+                Log.e(TAG, "Get nearby hikes failed: " + e.getMessage());
+                if (callback != null) {
+                    callback.onError("Network error: " + e.getMessage());
+                }
+            }
+            
+            @Override
+            public void onResponse(Call call, Response response) throws IOException {
+                try {
+                    if (response.isSuccessful() && response.body() != null) {
+                        String responseBody = response.body().string();
+                        Log.d(TAG, "Nearby hikes response received, parsing...");
+                        
+                        try {
+                            JsonArray jsonArray = gson.fromJson(responseBody, JsonArray.class);
+                            List<Hike> hikes = new ArrayList<>();
+                            
+                            for (int i = 0; i < jsonArray.size(); i++) {
+                                try {
+                                    JsonObject jsonObject = jsonArray.get(i).getAsJsonObject();
+                                    Hike hike = gson.fromJson(jsonObject, Hike.class);
+                                    
+                                    // Extract author information if present
+                                    if (jsonObject.has("User") && !jsonObject.get("User").isJsonNull()) {
+                                        JsonObject userObject = jsonObject.getAsJsonObject("User");
+                                        hike.userName = userObject.has("username") ? userObject.get("username").getAsString() : "Unknown";
+                                    }
+                                    
+                                    hikes.add(hike);
+                                } catch (Exception e) {
+                                    Log.w(TAG, "Failed to parse hike: " + e.getMessage());
+                                }
+                            }
+                            
+                            Log.d(TAG, "Successfully parsed " + hikes.size() + " nearby hikes");
+                            if (callback != null) {
+                                callback.onSuccess(hikes);
+                            }
+                        } catch (Exception e) {
+                            Log.e(TAG, "Failed to parse nearby hikes JSON: " + e.getMessage());
+                            if (callback != null) {
+                                callback.onError("Failed to parse response: " + e.getMessage());
+                            }
+                        }
+                    } else {
+                        assert response.body() != null;
+                        String errorBody = response.body().string();
+                        Log.e(TAG, "Get nearby hikes error: " + response.code() + " - " + errorBody);
+                        if (callback != null) {
+                            callback.onError("HTTP " + response.code() + ": " + errorBody);
+                        }
+                    }
+                } catch (Exception e) {
+                    Log.e(TAG, "Error processing nearby hikes response: " + e.getMessage());
+                    if (callback != null) {
+                        callback.onError("Error: " + e.getMessage());
+                    }
+                }
+            }
+        });
+    }
 }

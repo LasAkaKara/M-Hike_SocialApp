@@ -1,13 +1,16 @@
 package com.example.mhike.services;
 
 import android.content.Context;
+import android.net.Uri;
 import android.os.Handler;
 import android.os.Looper;
 import android.util.Log;
 
 import com.example.mhike.database.AppDatabase;
 import com.example.mhike.database.daos.HikeDao;
+import com.example.mhike.database.daos.ObservationDao;
 import com.example.mhike.database.entities.Hike;
+import com.example.mhike.database.entities.Observation;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 
@@ -37,7 +40,10 @@ public class SyncService {
     private final Context context;
     private final OkHttpClient httpClient;
     private final HikeDao hikeDao;
+    private final ObservationDao observationDao;
     private final String authToken;
+    private final AuthService authService;
+    private final CloudinaryHelper cloudinaryHelper;
     
     // Callback interface for offline-to-cloud sync operations
     public interface SyncCallback {
@@ -103,14 +109,18 @@ public class SyncService {
         this.context = context.getApplicationContext();
         this.httpClient = httpClient;
         this.authToken = authToken;
+        this.authService = new AuthService(context, new OkHttpClient());
+        this.cloudinaryHelper = new CloudinaryHelper(context, httpClient);
         
         AppDatabase database = AppDatabase.getInstance(context);
         this.hikeDao = database.hikeDao();
+        this.observationDao = database.observationDao();
     }
     
     /**
-     * Sync all offline hikes to the cloud
+     * Sync all offline hikes and observations to the cloud
      * Hikes with syncStatus = 0 will be uploaded, and syncStatus will be updated to 1
+     * Observations with syncStatus = 0 will be uploaded, and syncStatus will be updated to 1
      * Also syncs deleted hikes (isDeleted = 1) by deleting them from cloud
      */
     public void syncAllOfflineHikes(SyncCallback callback) {
@@ -122,11 +132,15 @@ public class SyncService {
                 // Get all offline hikes (syncStatus = 0) - using sync method for background thread
                 List<Hike> offlineHikes = hikeDao.getHikesBySyncStatusSync(0);
                 
+                // Get all offline observations (syncStatus = 0)
+                List<Observation> offlineObservations = observationDao.getObservationsBySyncStatusSync(0);
+                
                 // Also get deleted hikes that need to be synced
                 List<Hike> deletedHikes = hikeDao.getDeletedHikesSync();
                 
                 int totalToSync = (offlineHikes != null ? offlineHikes.size() : 0) + 
-                                  (deletedHikes != null ? deletedHikes.size() : 0);
+                                  (deletedHikes != null ? deletedHikes.size() : 0) +
+                                  (offlineObservations != null ? offlineObservations.size() : 0);
                 
                 if (totalToSync == 0) {
                     result.totalHikes = 0;
@@ -191,6 +205,26 @@ public class SyncService {
                     }
                 }
                 
+                // Sync offline observations (uploads)
+                if (offlineObservations != null) {
+                    for (Observation observation : offlineObservations) {
+                        if (syncObservationToCloud(observation)) {
+                            // Update sync status to 1 (synced)
+                            observation.syncStatus = 1;
+                            observation.updatedAt = System.currentTimeMillis();
+                            observationDao.update(observation);
+                            result.successfulUploads++;
+                        } else {
+                            result.failedUploads++;
+                        }
+
+                        completedCount++;
+                        if (callback != null) {
+                            callback.onSyncProgress(completedCount, result.totalHikes);
+                        }
+                    }
+                }
+                
                 result.syncDuration = System.currentTimeMillis() - startTime;
                 
                 if (callback != null) {
@@ -215,7 +249,7 @@ public class SyncService {
             
             // Build request body from hike object
             JsonObject body = new JsonObject();
-            body.addProperty("userId", 1); // TODO: Get actual user ID from auth
+            body.addProperty("userId", authService.getUserId());
             body.addProperty("name", hike.name);
             body.addProperty("location", hike.location);
             body.addProperty("length", hike.length);
@@ -276,7 +310,7 @@ public class SyncService {
                 String url = BASE_URL + "/hikes";
                 
                 JsonObject body = new JsonObject();
-                body.addProperty("userId", 1); // TODO: Get actual user ID from auth
+                body.addProperty("userId", authService.getUserId());
                 body.addProperty("name", hike.name);
                 body.addProperty("location", hike.location);
                 body.addProperty("length", hike.length);
@@ -515,9 +549,53 @@ public class SyncService {
                         // Ensure local ID is 0 to let Room auto-generate
                         cloudHike.id = 0;
                         cloudHike.syncStatus = 1; // Mark as synced
-                        hikeDao.insert(cloudHike);
-                        Log.d(TAG, "Successfully inserted hike: " + cloudHike.name);
+                        long insertedHikeId = hikeDao.insert(cloudHike);
+                        Log.d(TAG, "Successfully inserted hike: " + cloudHike.name + " with local ID: " + insertedHikeId);
                         result.successfulInserts++;
+                        
+                        // After inserting hike, fetch and sync its observations
+                        List<Observation> cloudObservations = fetchObservationsFromCloud(cloudHike.cloudId);
+                        if (cloudObservations != null && !cloudObservations.isEmpty()) {
+                            Log.d(TAG, "Fetched " + cloudObservations.size() + " observations for hike: " + cloudHike.name);
+                            
+                            for (Observation cloudObs : cloudObservations) {
+                                try {
+                                    // Check if observation already exists locally (by cloudId)
+                                    if (cloudObs.cloudId != null) {
+                                        Observation existingObs = observationDao.getObservationByCloudIdSync(cloudObs.cloudId);
+                                        if (existingObs != null) {
+                                            Log.d(TAG, "Observation already exists locally, skipping duplicate");
+                                            result.skippedDuplicates++;
+                                            continue;
+                                        }
+                                    }
+                                    
+                                    // Download image from cloud if present
+                                    if (cloudObs.imageUri != null && !cloudObs.imageUri.isEmpty()) {
+                                        String localImagePath = downloadImageFromCloudinary(cloudObs.imageUri);
+                                        if (localImagePath != null) {
+                                            cloudObs.imageUri = localImagePath;
+                                            Log.d(TAG, "Downloaded image for observation: " + cloudObs.title);
+                                        } else {
+                                            Log.w(TAG, "Failed to download image for observation: " + cloudObs.title);
+                                            // Continue anyway - observation can exist without image
+                                            cloudObs.imageUri = null;
+                                        }
+                                    }
+                                    
+                                    // Set the local hike ID and reset observation ID
+                                    cloudObs.id = 0;
+                                    cloudObs.hikeId = insertedHikeId;
+                                    cloudObs.syncStatus = 1; // Mark as synced
+                                    observationDao.insert(cloudObs);
+                                    Log.d(TAG, "Successfully inserted observation: " + cloudObs.title + " for hike ID: " + insertedHikeId);
+                                    result.successfulInserts++;
+                                } catch (Exception e) {
+                                    Log.e(TAG, "Failed to insert observation from cloud: " + e.getMessage(), e);
+                                    result.failedInserts++;
+                                }
+                            }
+                        }
                     } catch (Exception e) {
                         Log.e(TAG, "Failed to insert hike from cloud: " + e.getMessage(), e);
                         result.failedInserts++;
@@ -627,6 +705,80 @@ public class SyncService {
     }
     
     /**
+     * Fetch all observations for a specific hike from cloud backend
+     * Returns list of observations or null on error
+     */
+    private List<Observation> fetchObservationsFromCloud(String hikeCloudId) {
+        try {
+            String url = BASE_URL + "/observations/hike/" + hikeCloudId;
+            Log.d(TAG, "Fetching observations from: " + url);
+            
+            Request request = new Request.Builder()
+                .url(url)
+                .get()
+                .addHeader("Authorization", "Bearer " + authToken)
+                .build();
+            
+            Log.d(TAG, "Request built for observations, executing...");
+            
+            try (Response response = httpClient.newCall(request).execute()) {
+                Log.d(TAG, "Observation response received. Status code: " + response.code());
+                
+                if (response.isSuccessful()) {
+                    try {
+                        assert response.body() != null;
+                        String responseBody = response.body().string();
+                        
+                        Log.d(TAG, "Response body length: " + responseBody.length());
+                        
+                        // Parse JSON array of observations
+                        JsonArray observationsArray = new com.google.gson.JsonParser()
+                            .parse(responseBody)
+                            .getAsJsonArray();
+                        
+                        Log.d(TAG, "Parsed JSON array with " + observationsArray.size() + " observations");
+                        
+                        List<Observation> observations = new java.util.ArrayList<>();
+                        com.google.gson.Gson gson = new com.google.gson.Gson();
+                        
+                        for (int i = 0; i < observationsArray.size(); i++) {
+                            try {
+                                JsonObject element = observationsArray.get(i).getAsJsonObject();
+                                Observation observation = gson.fromJson(element, Observation.class);
+                                
+                                // Map cloud's 'id' field to our 'cloudId' for tracking
+                                if (element.has("id")) {
+                                    observation.cloudId = element.get("id").getAsString();
+                                    // Don't use cloud's id as local primary key - let Room generate it
+                                    observation.id = 0;
+                                    Log.d(TAG, "Parsed observation " + (i + 1) + ": " + observation.title + " (cloudId: " + observation.cloudId + ")");
+                                }
+                                observations.add(observation);
+                            } catch (Exception e) {
+                                Log.w(TAG, "Failed to parse observation " + (i + 1) + ": " + e.getMessage(), e);
+                            }
+                        }
+                        
+                        Log.d(TAG, "Successfully fetched " + observations.size() + " observations from cloud");
+                        return observations;
+                    } catch (Exception e) {
+                        Log.e(TAG, "Failed to parse observation response: " + e.getMessage(), e);
+                        return null;
+                    }
+                } else {
+                    assert response.body() != null;
+                    String errorBody = response.body().string();
+                    Log.e(TAG, "Failed to fetch observations from cloud: " + response.code() + " - " + errorBody);
+                    return null;
+                }
+            }
+        } catch (IOException e) {
+            Log.e(TAG, "Network error while fetching observations from cloud: " + e.getMessage(), e);
+            return null;
+        }
+    }
+    
+    /**
      * Delete a hike from cloud backend
      * Returns true if successful, false otherwise
      */
@@ -656,5 +808,131 @@ public class SyncService {
             return false;
         }
     }
+    
+    /**
+     * Sync a single observation to the cloud
+     * Returns true if successful, false otherwise
+     */
+    private boolean syncObservationToCloud(Observation observation) {
+        try {
+            String url = BASE_URL + "/observations";
+            
+            // Build request body from observation object
+            JsonObject body = new JsonObject();
+            body.addProperty("title", observation.title);
+            body.addProperty("userId", authService.getUserId());
+            body.addProperty("hikeId", observation.hikeId);
+            body.addProperty("time", observation.time);
+            body.addProperty("comments", observation.comments != null ? observation.comments : "");
+            body.addProperty("status", observation.status);
+            
+            // Add optional geolocation data
+            if (observation.latitude != null && observation.longitude != null) {
+                body.addProperty("lat", observation.latitude);
+                body.addProperty("lng", observation.longitude);
+            }
+            
+            // Upload image to Cloudinary if present
+            if (observation.imageUri != null && !observation.imageUri.isEmpty()) {
+                Uri imageUri = Uri.parse(observation.imageUri);
+                String cloudinaryUrl = cloudinaryHelper.uploadImage(imageUri);
+                
+                if (cloudinaryUrl != null) {
+                    body.addProperty("imageUrl", cloudinaryUrl);
+                    Log.d(TAG, "Image uploaded to Cloudinary: " + cloudinaryUrl);
+                } else {
+                    Log.w(TAG, "Failed to upload image for observation: " + observation.title);
+                }
+            }
+            
+            RequestBody requestBody = RequestBody.create(
+                body.toString(),
+                MediaType.parse("application/json")
+            );
+            
+            Request request = new Request.Builder()
+                .url(url)
+                .post(requestBody)
+                .addHeader("Content-Type", "application/json")
+                .addHeader("Authorization", "Bearer " + authToken)
+                .build();
+            
+            // Make synchronous call
+            try (Response response = httpClient.newCall(request).execute()) {
+                if (response.isSuccessful()) {
+                    try {
+                        assert response.body() != null;
+                        JSONObject responseJson = new JSONObject(response.body().string());
+                        String cloudId = responseJson.optString("id");
+                        
+                        // Store cloud ID for future updates
+                        observation.cloudId = cloudId;
+                        Log.d(TAG, "Successfully synced observation: " + observation.title + " with cloud ID: " + cloudId);
+                        return true;
+                    } catch (JSONException e) {
+                        Log.e(TAG, "Failed to parse observation response: " + e.getMessage());
+                        return false;
+                    }
+                } else {
+                    assert response.body() != null;
+                    String errorBody = response.body().string();
+                    Log.e(TAG, "Failed to sync observation " + observation.title + ": " + response.code() + " - " + errorBody);
+                    return false;
+                }
+            }
+        } catch (IOException e) {
+            Log.e(TAG, "Network error while syncing observation " + observation.title + ": " + e.getMessage(), e);
+            return false;
+        }
+    }
+
+    /**
+     * Download image from Cloudinary URL and save to local persistent storage
+     * @param cloudinaryUrl The Cloudinary image URL
+     * @return Local file path if successful, null otherwise
+     */
+    private String downloadImageFromCloudinary(String cloudinaryUrl) {
+        if (cloudinaryUrl == null || cloudinaryUrl.isEmpty()) {
+            return null;
+        }
+        
+        try {
+            // Create request to download image from Cloudinary
+            Request request = new Request.Builder()
+                .url(cloudinaryUrl)
+                .get()
+                .build();
+            
+            try (Response response = httpClient.newCall(request).execute()) {
+                if (response.isSuccessful() && response.body() != null) {
+                    // Create images directory in app's internal storage (persistent)
+                    java.io.File imagesDir = new java.io.File(context.getFilesDir(), "observations");
+                    if (!imagesDir.exists()) {
+                        imagesDir.mkdirs();
+                    }
+                    
+                    // Save image with timestamp to avoid collisions
+                    java.io.File imageFile = new java.io.File(imagesDir, "observation_" + System.currentTimeMillis() + ".jpg");
+                    
+                    // Write image data to file
+                    byte[] bytes = response.body().bytes();
+                    try (java.io.FileOutputStream fos = new java.io.FileOutputStream(imageFile)) {
+                        fos.write(bytes);
+                        fos.flush();
+                    }
+                    
+                    Log.d(TAG, "Downloaded image from Cloudinary: " + imageFile.getAbsolutePath());
+                    return imageFile.getAbsolutePath();
+                } else {
+                    Log.w(TAG, "Failed to download image from Cloudinary: HTTP " + (response != null ? response.code() : "unknown"));
+                    return null;
+                }
+            }
+        } catch (IOException e) {
+            Log.e(TAG, "Error downloading image from Cloudinary: " + e.getMessage(), e);
+            return null;
+        }
+    }
+
 }
 

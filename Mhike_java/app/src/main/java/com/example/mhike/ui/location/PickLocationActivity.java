@@ -8,6 +8,7 @@ import android.widget.Toast;
 import androidx.appcompat.app.AppCompatActivity;
 
 import com.example.mhike.R;
+import com.example.mhike.utils.GeocodingHelper;
 import com.google.android.material.button.MaterialButton;
 import com.google.android.material.floatingactionbutton.FloatingActionButton;
 
@@ -21,6 +22,7 @@ import org.osmdroid.views.overlay.Marker;
 /**
  * PickLocationActivity - Map-based location picker using osmdroid
  * Allows users to select a location by tapping on the map or viewing default location
+ * Automatically fetches place names via reverse geocoding
  */
 public class PickLocationActivity extends AppCompatActivity {
     
@@ -34,7 +36,9 @@ public class PickLocationActivity extends AppCompatActivity {
     private MaterialButton cancelButton;
     private FloatingActionButton jumpToGpsButton;
     
+    private GeocodingHelper geocodingHelper;
     private GeoPoint selectedLocation;
+    private String selectedPlaceName;
     private Marker centerMarker;
     
     @Override
@@ -44,6 +48,9 @@ public class PickLocationActivity extends AppCompatActivity {
         
         // Initialize osmdroid configuration
         Configuration.getInstance().setUserAgentValue(getString(R.string.app_name));
+        
+        // Initialize geocoding helper for reverse geocoding
+        geocodingHelper = new GeocodingHelper(this);
         
         initializeUI();
         setupMap();
@@ -90,6 +97,7 @@ public class PickLocationActivity extends AppCompatActivity {
     
     /**
      * Track map center changes and update marker position
+     * Perform reverse geocoding when location changes
      */
     private void startMapCenterTracking() {
         // Update marker position every 200ms when map is being interacted with
@@ -101,6 +109,8 @@ public class PickLocationActivity extends AppCompatActivity {
                     if (center != null && !center.equals(selectedLocation)) {
                         selectedLocation = center;
                         updateCenterMarker(center);
+                        // Perform reverse geocoding for new location
+                        performReverseGeocoding(center.getLatitude(), center.getLongitude());
                     }
                     // Continue tracking
                     mapView.postDelayed(this, 200);
@@ -125,9 +135,49 @@ public class PickLocationActivity extends AppCompatActivity {
         if (centerMarker != null) {
             centerMarker.setPosition(newLocation);
             centerMarker.setSnippet("Lat: " + String.format("%.4f", newLocation.getLatitude()) 
-                + "\nLon: " + String.format("%.4f", newLocation.getLongitude()));
+                + "\nLon: " + String.format("%.4f", newLocation.getLongitude())
+                + (selectedPlaceName != null ? "\n" + selectedPlaceName : ""));
             mapView.invalidate();
         }
+    }
+    
+    /**
+     * Perform reverse geocoding to get place name from coordinates
+     * @param latitude Latitude coordinate
+     * @param longitude Longitude coordinate
+     */
+    private void performReverseGeocoding(double latitude, double longitude) {
+        // Show loading indicator in marker snippet
+        if (centerMarker != null) {
+            centerMarker.setSnippet("Fetching location...");
+        }
+        
+        geocodingHelper.getPlaceName(latitude, longitude, new GeocodingHelper.GeocodeCallback() {
+            @Override
+            public void onAddressFound(String placeName, String fullAddress) {
+                selectedPlaceName = placeName;
+                Log.d(TAG, "Place name found: " + placeName);
+                
+                // Update marker with place name
+                if (centerMarker != null) {
+                    centerMarker.setSnippet("Lat: " + String.format("%.4f", latitude) 
+                        + "\nLon: " + String.format("%.4f", longitude)
+                        + "\n" + placeName);
+                    mapView.invalidate();
+                }
+            }
+            
+            @Override
+            public void onGeocodeError(String errorMessage) {
+                Log.w(TAG, "Geocoding error: " + errorMessage);
+                // Show coordinates only if geocoding fails
+                if (centerMarker != null) {
+                    centerMarker.setSnippet("Lat: " + String.format("%.4f", latitude) 
+                        + "\nLon: " + String.format("%.4f", longitude));
+                    mapView.invalidate();
+                }
+            }
+        });
     }
     
     private void setupListeners() {
@@ -165,15 +215,20 @@ public class PickLocationActivity extends AppCompatActivity {
     }
     
     /**
-     * Return selected location to calling activity
+     * Return selected location to calling activity with place name
      */
     private void confirmLocation() {
         if (selectedLocation != null) {
             Intent resultIntent = new Intent();
             resultIntent.putExtra("latitude", selectedLocation.getLatitude());
             resultIntent.putExtra("longitude", selectedLocation.getLongitude());
+            // Pass the place name back to the calling activity
+            if (selectedPlaceName != null) {
+                resultIntent.putExtra("placeName", selectedPlaceName);
+            }
             setResult(RESULT_OK, resultIntent);
-            Log.d(TAG, "Location confirmed: " + selectedLocation.getLatitude() + ", " + selectedLocation.getLongitude());
+            Log.d(TAG, "Location confirmed: " + selectedLocation.getLatitude() + ", " + selectedLocation.getLongitude() 
+                + " (" + (selectedPlaceName != null ? selectedPlaceName : "No place name") + ")");
             finish();
         } else {
             Toast.makeText(this, "No location selected", Toast.LENGTH_SHORT).show();

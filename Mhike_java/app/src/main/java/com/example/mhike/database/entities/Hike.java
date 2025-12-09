@@ -3,6 +3,7 @@ package com.example.mhike.database.entities;
 import androidx.room.Entity;
 import androidx.room.Ignore;
 import androidx.room.PrimaryKey;
+import com.google.gson.annotations.SerializedName;
 
 /**
  * Hike entity for local SQLite storage.
@@ -36,8 +37,10 @@ public class Hike {
     
     // User information (for feed display)
     @Ignore
+    @SerializedName("username")
     public String userName;  // Author's username
     @Ignore
+    @SerializedName("avatarUrl")
     public String userAvatarUrl;  // Author's avatar URL
     
     // Metadata

@@ -5,6 +5,7 @@ import android.graphics.Bitmap;
 import android.net.Uri;
 import android.os.Bundle;
 import android.provider.MediaStore;
+import android.view.Menu;
 import android.view.MenuItem;
 import android.widget.ImageView;
 import android.widget.Toast;
@@ -21,6 +22,8 @@ import com.example.mhike.R;
 import com.example.mhike.database.entities.Hike;
 import com.example.mhike.database.entities.Observation;
 import com.example.mhike.services.LocationManager;
+import com.example.mhike.services.AuthService;
+import com.example.mhike.services.SyncService;
 import com.example.mhike.ui.add.AddHikeActivity;
 import com.example.mhike.ui.adapters.ObservationAdapter;
 import com.example.mhike.ui.location.PickLocationActivity;
@@ -34,6 +37,8 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.text.SimpleDateFormat;
 import java.util.Locale;
+
+import okhttp3.OkHttpClient;
 
 /**
  * Activity for displaying detailed hike information with observations
@@ -75,6 +80,8 @@ public class HikeDetailActivity extends AppCompatActivity implements Observation
     // Location manager
     private LocationManager locationManager;
     
+    // Auth service
+    private AuthService authService;
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -82,6 +89,7 @@ public class HikeDetailActivity extends AppCompatActivity implements Observation
         
         viewModel = new ViewModelProvider(this).get(HikeViewModel.class);
         locationManager = new LocationManager(this);
+        authService = new AuthService(this, new OkHttpClient());
         
         // Initialize activity result launchers
         initializeImagePickerLauncher();
@@ -131,16 +139,20 @@ public class HikeDetailActivity extends AppCompatActivity implements Observation
     }
     
     /**
-     * Save image from URI to app's cache directory
+     * Save image from URI to app's files directory (persistent storage)
      */
     private String saveImageToCache(Uri imageUri) {
         try {
             // Read bitmap from URI
             Bitmap bitmap = MediaStore.Images.Media.getBitmap(getContentResolver(), imageUri);
             
-            // Create cache directory if needed
-            File cacheDir = getCacheDir();
-            File imageFile = new File(cacheDir, "observation_" + System.currentTimeMillis() + ".jpg");
+            // Create images directory in app's internal storage (persistent, not cleared by system)
+            File imagesDir = new File(getFilesDir(), "observations");
+            if (!imagesDir.exists()) {
+                imagesDir.mkdirs();
+            }
+            
+            File imageFile = new File(imagesDir, "observation_" + System.currentTimeMillis() + ".jpg");
             
             // Write bitmap to file
             try (FileOutputStream fos = new FileOutputStream(imageFile)) {
@@ -495,8 +507,17 @@ public class HikeDetailActivity extends AppCompatActivity implements Observation
     }
     
     @Override
+    public boolean onCreateOptionsMenu(Menu menu) {
+        getMenuInflater().inflate(R.menu.menu_detail, menu);
+        return true;
+    }
+    
+    @Override
     public boolean onOptionsItemSelected(MenuItem item) {
-        if (item.getItemId() == R.id.actionEdit) {
+        if (item.getItemId() == R.id.actionSyncObservations) {
+            syncObservations();
+            return true;
+        } else if (item.getItemId() == R.id.actionEdit) {
             editHike();
             return true;
         } else if (item.getItemId() == R.id.actionDelete) {
@@ -513,6 +534,45 @@ public class HikeDetailActivity extends AppCompatActivity implements Observation
         Intent intent = new Intent(HikeDetailActivity.this, AddHikeActivity.class);
         intent.putExtra("hike_id", hikeId);
         startActivity(intent);
+    }
+    
+    private void syncObservations() {
+        // Trigger syncing of unsynced observations
+        Toast.makeText(this, "Syncing observations...", Toast.LENGTH_SHORT).show();
+        
+        SyncService syncService = new SyncService(
+            this, 
+            new okhttp3.OkHttpClient(), 
+            authService.getToken()
+        );
+        
+        syncService.syncAllOfflineHikes(new SyncService.SyncCallback() {
+            @Override
+            public void onSyncStart(int totalHikes) {
+            }
+            
+            @Override
+            public void onSyncProgress(int completed, int total) {
+            }
+            
+            @Override
+            public void onSyncSuccess(SyncService.SyncResult result) {
+                Toast.makeText(
+                    HikeDetailActivity.this, 
+                    "Observations synced successfully", 
+                    Toast.LENGTH_SHORT
+                ).show();
+            }
+            
+            @Override
+            public void onSyncError(String errorMessage) {
+                Toast.makeText(
+                    HikeDetailActivity.this, 
+                    "Sync failed: " + errorMessage, 
+                    Toast.LENGTH_SHORT
+                ).show();
+            }
+        });
     }
     
     private void deleteHike() {

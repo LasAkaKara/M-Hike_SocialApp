@@ -12,6 +12,7 @@ import androidx.fragment.app.Fragment;
 
 import com.example.mhike.R;
 import com.example.mhike.services.AuthService;
+import com.example.mhike.services.DatabaseCleaner;
 import com.example.mhike.ui.auth.LoginActivity;
 
 /**
@@ -84,7 +85,14 @@ public class ProfileFragment extends Fragment {
     
     private void setupListeners() {
         logoutButton.setOnClickListener(v -> {
+            // Clear all local data when logging out
+            DatabaseCleaner cleaner = new DatabaseCleaner(requireContext());
+            cleaner.clearAllLocalData();
+            
+            // Clear authentication data
             authService.logout();
+            
+            // Navigate to login screen
             navigateToLogin();
         });
     }

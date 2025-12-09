@@ -90,6 +90,7 @@
     
     <!-- Sync -->
     <string name="sync_database">Sync Database</string>
+    <string name="sync_observations">Sync Observations</string>
     
     <!-- Sync Status -->
     <string name="sync_status">Sync Status</string>
